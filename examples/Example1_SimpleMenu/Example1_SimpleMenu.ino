@@ -77,6 +77,8 @@ void setup()
   // setup the LCD orientation, the default font and initialize the user interface
   //
   ui.begin(LCD_CS_PIN, LCD_DC_PIN, TOUCH_CS_PIN, LCD_ORIENTATION_LANDSCAPE_4PIN_RIGHT, Arial_9_Bold);
+  ui.setTouchScreenCalibrationConstants(150, 3921, 206, 3934);
+
 }
 
 
@@ -258,5 +260,47 @@ void commandDrawShapes(void)
 
     if (ui.checkForBackButtonClicked())
       return;
+  }
+}
+
+void commandSetPowerLevel(void)
+{
+  ui.drawTitleBarWithBackButton("Get Integer Value Using a Slider");
+  ui.clearDisplaySpace();
+
+  //
+  // define a Slider so the user can select a numeric value, specify the initial value, 
+  // max and min values, and step up/down amount
+  //
+  SLIDER myPowerSlider;
+  myPowerSlider.labelText    = "Power level (1 to 100)";
+  myPowerSlider.value        = 50;
+  myPowerSlider.minimumValue = 1;
+  myPowerSlider.maximumValue = 100;
+  myPowerSlider.stepAmount   = 1;
+  myPowerSlider.centerX      = ui.displaySpaceCenterX;
+  myPowerSlider.centerY      = 125;
+  myPowerSlider.width        = 250;
+  ui.drawSlider(myPowerSlider);
+
+  //
+  // process touch events
+  //
+  while(true)
+  {
+    ui.getTouchEvents();
+
+    if (ui.checkForSliderTouched(myPowerSlider))
+    {
+      // optionally insert code here that updates as user moves the Slider, ie:
+      // setServoPosition(myPowerSlider.value);
+    }
+
+    if (ui.checkForBackButtonClicked())   // check for touch events on the "Back" button
+    {
+      // optionally insert code here that reads the Slider's final position, ie:
+      // setServoPosition(myPowerSlider.value);
+      return;
+    }
   }
 }

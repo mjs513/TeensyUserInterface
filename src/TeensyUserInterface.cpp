@@ -3498,7 +3498,7 @@ void TeensyUserInterface::setDefaultTouchScreenCalibrationConstants(int lcdOrien
 //          tsToLCDOffsetY_high = touch screen calibration min Y
 //
 void TeensyUserInterface::setTouchScreenCalibrationConstants(int tsToLCDOffsetX_low, 
-  int tsToLCDScalerX_high, int tsToLCDOffsetY_low, int tsToLCDScalerY_high)
+  int tsToLCDOffsetX_high, int tsToLCDOffsetY_low, int tsToLCDOffsetY_high)
 {
   touchScreenToLCDOffsetX_low = tsToLCDOffsetX_low;
   touchScreenToLCDOffsetX_high = tsToLCDOffsetX_high;

@@ -159,7 +159,14 @@
 // ---------------------------------------------------------------------------------
 
 #include <EEPROM.h>
+#if __has_include("ILI9341_t3.h")
 #include <ILI9341_t3.h>
+#elif __has_include("ST7796_t3.h")
+#include <ST7796_t3.h>
+#define ILI9341_t3 ST7796_t3
+#elif __has_include("ILI9488_t3.h")
+#define ILI9341_t3 ILI9488_t3
+#endif
 #include <XPT2046_Touchscreen.h>
 #include "TeensyUserInterface.h"
 
@@ -204,7 +211,11 @@ void TeensyUserInterface::begin(int lcdCSPin, int LcdDCPin, int TouchScreenCSPin
   //
   // create the LCD and touchscreen objects
   //
+  #if __has_include("ST7796_t3.h")
+  lcd = new ST7796_t3(lcdCSPin, LcdDCPin);
+  #else
   lcd = new ILI9341_t3(lcdCSPin, LcdDCPin);
+  #endif
   ts = new XPT2046_Touchscreen(TouchScreenCSPin);
   
   //
@@ -2596,6 +2607,602 @@ int TeensyUserInterface::countSelectionBoxChoices(SELECTION_BOX &selectionBox)
   return(4);
 }
 
+// ---------------------------------------------------------------------------------
+//                                 Slider functions  
+// ---------------------------------------------------------------------------------
+
+//
+// constants used by the Slider
+//
+const int SLIDER_BALL_RADIUS = 10;
+
+
+//
+// draw a Slider
+//  Enter:  slider -> the specifications of the Slider to draw
+//
+void TeensyUserInterface::drawSlider(SLIDER &slider)
+{  
+  //
+  // draw the Slider's line and ball
+  //
+  drawSliderBall(slider, menuButtonColor);
+  int halfWidth = slider.width / 2;
+  lcdDrawHorizontalLine(slider.centerX - halfWidth, slider.centerY, halfWidth * 2, menuButtonColor);
+  
+  //
+  // draw optional text above the Slider
+  //
+  if (slider.labelText[0] != 0)
+  {
+    int textHeight = lcdGetFontHeightWithDecentersAndLineSpacing();
+    lcdSetCursorXY(slider.centerX, slider.centerY - SLIDER_BALL_RADIUS - (textHeight+3));
+    lcdPrintCentered(slider.labelText);
+  }
+}
+
+
+
+//
+// draw the ball at the Slider's location
+//    Enter:  slider -> the Slider
+//
+void TeensyUserInterface::drawSliderBall(SLIDER &slider, uint16_t ballColor)
+{
+  int x = getSliderBallXPosition(slider);
+  lcdDrawFilledCircle(x, slider.centerY, SLIDER_BALL_RADIUS, ballColor);
+}
+
+
+
+//
+// check if user is touching the Slider (dragging the ball right/left)
+//    Enter:  slider -> the Slider
+//    Exit:   true returned if the Slider's Value has changed
+//
+boolean TeensyUserInterface::checkForSliderTouched(SLIDER &slider)
+{
+  int touchXlcd;
+  int touchYlcd;
+  int originalValue = slider.value;
+  int newValue;
+
+  //
+  // get the coords, if any, where the user is touching
+  //
+  if (!getTouchScreenCoords(&touchXlcd, &touchYlcd))
+  {
+    slider.state = 0;           // user not touching, just return
+    return(false);
+  }
+
+  //
+  // user is touching, check if this is the first touch
+  //
+  if (slider.state == 0)
+  {
+    //
+    // check if the touch position is on the ball
+    //
+    int sliderX = getSliderBallXPosition(slider);
+    
+    int ballLeft = sliderX - (SLIDER_BALL_RADIUS + 2);
+    if (ballLeft < 0) ballLeft = 0;
+    
+    int ballRight = sliderX + (SLIDER_BALL_RADIUS + 2);
+    if (ballRight > lcdWidth - 1) ballRight = lcdWidth - 1;
+    
+    int ballTop = slider.centerY - (SLIDER_BALL_RADIUS + 2);
+    if (ballTop < 0) ballTop = 0;
+    
+    int ballBottom = slider.centerY + (SLIDER_BALL_RADIUS + 2);
+    if (ballBottom > lcdHeight - 1) ballBottom = lcdHeight - 1;
+    
+    if ((touchXlcd >= ballLeft) && (touchXlcd <= ballRight) && (touchYlcd >= ballTop) && (touchYlcd <= ballBottom))
+      slider.state = 1;       // user is touching the ball
+  }
+
+  //
+  // check if user has already started dragging the ball
+  //
+  else if (slider.state == 1)
+  {
+    //
+    // user is dragging the ball, compute a new "value" based on the current touch position
+    //
+    newValue = getBallsValue(slider, touchXlcd);
+
+    //
+    // check if the value has changed
+    //
+    if (newValue != originalValue)
+    {
+      //
+      // value changed
+      //
+      drawSliderBall(slider, menuBackgroundColor);      // undraw the ball
+
+      slider.value = newValue;                          // update Slider's new value
+                               
+      drawSliderBall(slider, menuButtonColor);          // redraw the slider with ball and line
+      int halfWidth = slider.width / 2;
+      lcdDrawHorizontalLine(slider.centerX - halfWidth, slider.centerY, halfWidth * 2, menuButtonColor);
+      return(true);
+    }
+  }
+
+  else
+    slider.state = 0;
+  
+  return(false);
+}
+
+
+
+//
+// get the Slider's ball position on the LCD give its value
+//    Enter:  slider -> the slider
+//
+int TeensyUserInterface::getSliderBallXPosition(SLIDER &slider)
+{
+  float f = slider.value - slider.minimumValue;
+  f = f / (slider.maximumValue - slider.minimumValue);
+  int i = (int) ((f * slider.width) + .5);
+  return(slider.centerX - (slider.width/2) + i);
+}
+
+
+
+//
+// get the ball's "value" given the its position
+//    Enter:  slider -> the slider
+//            lcdX = position on the LCD screen
+//
+int TeensyUserInterface::getBallsValue(SLIDER &slider, int lcdX)
+{
+  int sliderPos = lcdX - (slider.centerX - (slider.width/2));
+  int value = ((sliderPos * (slider.maximumValue - slider.minimumValue)) / slider.width) + slider.minimumValue;
+  
+  if (value < slider.minimumValue) value = slider.minimumValue;
+  if (value > slider.maximumValue) value = slider.maximumValue;
+  
+  value = ((value + slider.stepAmount/2) / slider.stepAmount) * slider.stepAmount;
+  
+  if (value < slider.minimumValue) value = slider.minimumValue;
+  if (value > slider.maximumValue) value = slider.maximumValue;
+  return(value);
+}
+
+
+// ---------------------------------------------------------------------------------
+//          Numeric Keypad - Allows user to enter a number (float or int)
+// ---------------------------------------------------------------------------------
+
+const int DIGIT_BUTTONS_WIDTH = 56;
+const int DIGIT_BUTTONS_HEIGHT = 44;
+const int DIGIT_BUTTONS_HORZ_SPACING = DIGIT_BUTTONS_WIDTH + 7;
+const int DIGIT_BUTTONS_VERT_SPACING = DIGIT_BUTTONS_HEIGHT + 7;
+const int DIGIT_BUTTONS_X = 35;
+const int DIGIT_BUTTONS_Y = 61;
+const int NUMBER_FIELD_WIDTH = 117;
+const int NUMBER_FIELD_HEIGHT = 32;
+const int NUMBER_FIELD_X = 196;
+const int NUMBER_FIELD_Y = 46;
+const int OTHER_BUTTONS_X = 254;
+const int OTHER_BUTTONS_Y = 111;
+const int OTHER_BUTTONS_WIDTH = 80;
+const int OTHER_BUTTONS_HEIGHT = DIGIT_BUTTONS_HEIGHT;
+const int OTHER_BUTTONS_SPACING = DIGIT_BUTTONS_VERT_SPACING;
+
+const int MAX_CHARACTERS = 12;
+char valueStr[MAX_CHARACTERS + 15];
+
+
+//
+// display a keypad allowing user to enter a float number
+//  Enter:  titleBar -> text to display on the titlebar
+//          value -> storage for initial value and returned value
+//          minValue = minimum value (a lower will disable the "OK" button)
+//          maxValue = maximum value (a higher will disable the "OK" button)
+//  Exit:   true returned if user pressed "OK", false returned if user pressed "Cancel"
+//
+boolean TeensyUserInterface::numericKeyPad(const char *titleBar, float &value, float minValue, float maxValue)
+{
+  boolean firstFlg = true;
+
+  
+  //
+  // draw title bar without a "Back" button
+  //
+  drawTitleBar(titleBar);
+  clearDisplaySpace();
+
+
+  //
+  // define the digits buttons, along with .  &  -
+  //
+  int row = 0;
+  int col = 0;
+  BUTTON button7 = {"7", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+  BUTTON button8 = {"8", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+  BUTTON button9 = {"9", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+
+  row = 1;
+  col = 0;
+  BUTTON button4 = {"4", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+  BUTTON button5 = {"5", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+  BUTTON button6 = {"6", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+
+  row = 2;
+  col = 0;
+  BUTTON button1 = {"1", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+  BUTTON button2 = {"2", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+  BUTTON button3 = {"3", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+
+  row = 3;
+  col = 0;
+  BUTTON button0     = {"0", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+  BUTTON buttonDot   = {".", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+  BUTTON buttonMinus = {"+/-", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+
+  //
+  // display the digits buttons
+  //
+  drawButton(button1);
+  drawButton(button2);
+  drawButton(button3);
+  drawButton(button4);
+  drawButton(button5);
+  drawButton(button6);
+  drawButton(button7);
+  drawButton(button8);
+  drawButton(button9);
+  drawButton(button0);
+  drawButton(buttonDot);
+  drawButton(buttonMinus);
+
+
+  //
+  // draw the number field
+  //
+  lcdDrawRectangle(NUMBER_FIELD_X, NUMBER_FIELD_Y, NUMBER_FIELD_WIDTH, NUMBER_FIELD_HEIGHT,  LCD_WHITE);
+
+  
+  //
+  // define and display "Del", "OK" and "Cancel" buttons
+  //
+  BUTTON okButton           = {"OK",     OTHER_BUTTONS_X, OTHER_BUTTONS_Y + 0*OTHER_BUTTONS_SPACING, OTHER_BUTTONS_WIDTH, OTHER_BUTTONS_HEIGHT};
+  drawButton(okButton);
+
+  BUTTON cancelButton       = {"Cancel", OTHER_BUTTONS_X, OTHER_BUTTONS_Y + 1*OTHER_BUTTONS_SPACING, OTHER_BUTTONS_WIDTH, OTHER_BUTTONS_HEIGHT};
+  drawButton(cancelButton);
+
+  BUTTON delButton =          {"<",      OTHER_BUTTONS_X, OTHER_BUTTONS_Y + 2*OTHER_BUTTONS_SPACING, OTHER_BUTTONS_WIDTH, OTHER_BUTTONS_HEIGHT};
+  drawButton(delButton);
+
+  //
+  // convert the initial value into a string, remove trailing zeros, then display it
+  //
+  dtostrf(value, 0, 4, valueStr);
+
+  int i = strlen(valueStr);
+
+  if (i > MAX_CHARACTERS)
+  {
+    valueStr[MAX_CHARACTERS] = 0;
+    i = strlen(valueStr);
+  }
+    
+  if (i > 0) i--;
+
+  while(i > 1)
+  {
+    if (valueStr[i] != '0')
+      break;
+    valueStr[i] = 0;
+    i--;
+  }
+  if (valueStr[i] == '.')
+     valueStr[i] = 0;
+  
+  keypad_DisplayValueInStringBuf();
+  
+
+  //
+  // process touch events
+  //
+  while(true)
+  {
+    getTouchEvents();
+    
+    //
+    // check if 0 - 9 button pressed
+    //
+    if (checkForButtonClicked(button0)) keypad_AddCharToStringBuf('0', firstFlg);
+    if (checkForButtonClicked(button1)) keypad_AddCharToStringBuf('1', firstFlg);
+    if (checkForButtonClicked(button2)) keypad_AddCharToStringBuf('2', firstFlg);
+    if (checkForButtonClicked(button3)) keypad_AddCharToStringBuf('3', firstFlg);
+    if (checkForButtonClicked(button4)) keypad_AddCharToStringBuf('4', firstFlg);
+    if (checkForButtonClicked(button5)) keypad_AddCharToStringBuf('5', firstFlg);
+    if (checkForButtonClicked(button6)) keypad_AddCharToStringBuf('6', firstFlg);
+    if (checkForButtonClicked(button7)) keypad_AddCharToStringBuf('7', firstFlg);
+    if (checkForButtonClicked(button8)) keypad_AddCharToStringBuf('8', firstFlg);
+    if (checkForButtonClicked(button9)) keypad_AddCharToStringBuf('9', firstFlg);
+
+    //
+    // check if the "dot" button pressed
+    //
+    if (checkForButtonClicked(buttonDot)) 
+    {
+      int len = strlen(valueStr);
+      int dotCount = 0;
+      for (int i = 0; i < len; i++)
+      {
+        if (valueStr[i] == '.')
+          dotCount++; 
+      }
+      if (dotCount == 0)
+        keypad_AddCharToStringBuf('.', firstFlg);
+    }
+    
+    
+    //
+    // check if the "minus" button pressed
+    //
+    if (checkForButtonClicked(buttonMinus)) 
+    {
+      if ((firstFlg == true) || (strlen(valueStr) == 0))
+        keypad_AddCharToStringBuf('-', firstFlg);
+    }
+
+
+    //
+    // if delete button pressed, delete the last character
+    //
+    if (checkForButtonClicked(delButton))
+    {
+      int i = strlen(valueStr);
+      if (i > 0) valueStr[i-1] = 0;
+      keypad_DisplayValueInStringBuf();
+      firstFlg = false;
+    }
+  
+    //
+    // check if the "OK" button pressed
+    //
+    if (checkForButtonClicked(okButton))
+    {
+      value = atof(valueStr);
+      if ((value >= minValue) && (value <= maxValue))
+        return(true);
+      else
+      {
+        drawTitleBar(">>> NUMBER OUT OF RANGE <<<");
+        delay(1500);
+        drawTitleBar(titleBar);
+      }
+    }
+  
+     //
+     // check if the "Cancel" button pressed
+     //
+     if (checkForButtonClicked(cancelButton))
+       return(false);
+  }
+}
+
+
+
+//
+// display a keypad allowing user to enter a int number
+//  Enter:  titleBar -> text to display on the titlebar
+//          value -> storage for initial value and returned value
+//          minValue = minimum value (a lower will disable the "OK" button)
+//          maxValue = maximum value (a higher will disable the "OK" button)
+//  Exit:   true returned if user pressed "OK", false returned if user pressed "Cancel"
+//
+boolean TeensyUserInterface::numericKeyPad(const char *titleBar, int &value, int minValue, int maxValue)
+{
+  boolean firstFlg = true;
+
+  
+  //
+  // draw title bar without a "Back" button
+  //
+  drawTitleBar(titleBar);
+  clearDisplaySpace();
+
+
+  //
+  // define the digits buttons, along with .  &  -
+  //
+  int row = 0;
+  int col = 0;
+  BUTTON button7 = {"7", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+  BUTTON button8 = {"8", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+  BUTTON button9 = {"9", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+
+  row = 1;
+  col = 0;
+  BUTTON button4 = {"4", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+  BUTTON button5 = {"5", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+  BUTTON button6 = {"6", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+
+  row = 2;
+  col = 0;
+  BUTTON button1 = {"1", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+  BUTTON button2 = {"2", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+  BUTTON button3 = {"3", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+
+  row = 3;
+  col = 1;
+  BUTTON button0     = {"0", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+  BUTTON buttonMinus = {"+/-", DIGIT_BUTTONS_X + (col++*DIGIT_BUTTONS_HORZ_SPACING), DIGIT_BUTTONS_Y + (row*DIGIT_BUTTONS_VERT_SPACING), DIGIT_BUTTONS_WIDTH, DIGIT_BUTTONS_HEIGHT};
+
+  //
+  // display the digits buttons
+  //
+  drawButton(button1);
+  drawButton(button2);
+  drawButton(button3);
+  drawButton(button4);
+  drawButton(button5);
+  drawButton(button6);
+  drawButton(button7);
+  drawButton(button8);
+  drawButton(button9);
+  drawButton(button0);
+  drawButton(buttonMinus);
+
+
+  //
+  // draw the number field
+  //
+  lcdDrawRectangle(NUMBER_FIELD_X, NUMBER_FIELD_Y, NUMBER_FIELD_WIDTH, NUMBER_FIELD_HEIGHT,  LCD_WHITE);
+
+  
+  //
+  // define and display "Del", "OK" and "Cancel" buttons
+  //
+  BUTTON okButton           = {"OK",     OTHER_BUTTONS_X, OTHER_BUTTONS_Y + 0*OTHER_BUTTONS_SPACING, OTHER_BUTTONS_WIDTH, OTHER_BUTTONS_HEIGHT};
+  drawButton(okButton);
+
+  BUTTON cancelButton       = {"Cancel", OTHER_BUTTONS_X, OTHER_BUTTONS_Y + 1*OTHER_BUTTONS_SPACING, OTHER_BUTTONS_WIDTH, OTHER_BUTTONS_HEIGHT};
+  drawButton(cancelButton);
+
+  BUTTON delButton =          {"<",      OTHER_BUTTONS_X, OTHER_BUTTONS_Y + 2*OTHER_BUTTONS_SPACING, OTHER_BUTTONS_WIDTH, OTHER_BUTTONS_HEIGHT};
+  drawButton(delButton);
+
+  //
+  // convert the initial value into a string, remove trailing zeros, then display it
+  //
+  dtostrf(value, 0, 4, valueStr);
+
+  int i = strlen(valueStr);
+
+  if (i > MAX_CHARACTERS)
+  {
+    valueStr[MAX_CHARACTERS] = 0;
+    i = strlen(valueStr);
+  }
+    
+  if (i > 0) i--;
+
+  while(i > 1)
+  {
+    if (valueStr[i] != '0')
+      break;
+    valueStr[i] = 0;
+    i--;
+  }
+  if (valueStr[i] == '.')
+     valueStr[i] = 0;
+  
+  keypad_DisplayValueInStringBuf();
+  
+
+  //
+  // process touch events
+  //
+  while(true)
+  {
+    getTouchEvents();
+    
+    //
+    // check if 0 - 9 button pressed
+    //
+    if (checkForButtonClicked(button0)) keypad_AddCharToStringBuf('0', firstFlg);
+    if (checkForButtonClicked(button1)) keypad_AddCharToStringBuf('1', firstFlg);
+    if (checkForButtonClicked(button2)) keypad_AddCharToStringBuf('2', firstFlg);
+    if (checkForButtonClicked(button3)) keypad_AddCharToStringBuf('3', firstFlg);
+    if (checkForButtonClicked(button4)) keypad_AddCharToStringBuf('4', firstFlg);
+    if (checkForButtonClicked(button5)) keypad_AddCharToStringBuf('5', firstFlg);
+    if (checkForButtonClicked(button6)) keypad_AddCharToStringBuf('6', firstFlg);
+    if (checkForButtonClicked(button7)) keypad_AddCharToStringBuf('7', firstFlg);
+    if (checkForButtonClicked(button8)) keypad_AddCharToStringBuf('8', firstFlg);
+    if (checkForButtonClicked(button9)) keypad_AddCharToStringBuf('9', firstFlg);
+    
+    
+    //
+    // check if the "minus" button pressed
+    //
+    if (checkForButtonClicked(buttonMinus)) 
+    {
+      if ((firstFlg == true) || (strlen(valueStr) == 0))
+        keypad_AddCharToStringBuf('-', firstFlg);
+    }
+
+
+    //
+    // if delete button pressed, delete the last character
+    //
+    if (checkForButtonClicked(delButton))
+    {
+      int i = strlen(valueStr);
+      if (i > 0) valueStr[i-1] = 0;
+      keypad_DisplayValueInStringBuf();
+      firstFlg = false;
+    }
+  
+    //
+    // check if the "OK" button pressed
+    //
+    if (checkForButtonClicked(okButton))
+    {
+      value = atof(valueStr);
+      if ((value >= minValue) && (value <= maxValue))
+        return(true);
+      else
+      {
+        drawTitleBar(">>> NUMBER OUT OF RANGE <<<");
+        delay(1500);
+        drawTitleBar(titleBar);
+      }
+    }
+  
+     //
+     // check if the "Cancel" button pressed
+     //
+     if (checkForButtonClicked(cancelButton))
+       return(false);
+  }
+}
+
+
+//
+// print the "value" as the user is entering it
+//  Enter:  valueStr contains string of the value
+//
+void TeensyUserInterface::keypad_DisplayValueInStringBuf(void)
+{
+  lcdDrawFilledRectangle(NUMBER_FIELD_X + 15, NUMBER_FIELD_Y + 11, NUMBER_FIELD_WIDTH-30, 10, LCD_BLACK);
+  
+  //setMenuFont(menuButtonFont);
+  //setMenuColors(LCD_WHITE);
+  lcdSetCursorXY(NUMBER_FIELD_X + NUMBER_FIELD_WIDTH/2, NUMBER_FIELD_Y + 11);
+  lcdPrintCentered(valueStr);
+}
+
+
+//
+// add a character to the string buffer
+//
+void TeensyUserInterface::keypad_AddCharToStringBuf(char c, boolean &firstCharEntered)
+{
+  int len = strlen(valueStr);
+  if (len >= MAX_CHARACTERS)
+    return;
+
+  if (firstCharEntered == true)
+    len = 0;
+  firstCharEntered = false;
+
+  valueStr[len] = c;
+  valueStr[len+1] = 0;
+
+  keypad_DisplayValueInStringBuf();
+}
+
 
 // ---------------------------------------------------------------------------------
 //                                Touch screen functions  
@@ -2855,26 +3462,26 @@ void TeensyUserInterface::setDefaultTouchScreenCalibrationConstants(int lcdOrien
   {
     case LCD_ORIENTATION_PORTRAIT_4PIN_TOP:
     {
-      setTouchScreenCalibrationConstants(20 - 4, 14.90,    17, 11.07);
+      setTouchScreenCalibrationConstants(150, 3769, 355, 3838);
       break;
     }
-    
+
     case LCD_ORIENTATION_LANDSCAPE_4PIN_LEFT:
     {
-      setTouchScreenCalibrationConstants(17, 11.07,    20, 14.90);
+      setTouchScreenCalibrationConstants(228, 3786, 133, 3768);
       break;
     }
     
     case LCD_ORIENTATION_PORTRAIT_4PIN_BOTTOM:
     {
-     setTouchScreenCalibrationConstants(20, 14.90,     35, 11.07);
+     setTouchScreenCalibrationConstants(317, 3924, 220, 3759);
      break;
     }
     
     case LCD_ORIENTATION_LANDSCAPE_4PIN_RIGHT:
     default:
     {
-      setTouchScreenCalibrationConstants(35, 11.06,    19, 14.84);
+      setTouchScreenCalibrationConstants(337, 3861,  327, 3948);
       break;
     }
   }
@@ -2885,18 +3492,18 @@ void TeensyUserInterface::setDefaultTouchScreenCalibrationConstants(int lcdOrien
 //
 // set the touch screen calibration constants used for converting from
 // touch coordinates to LCD coordinates
-//  Enter:  tsToLCDOffsetX = touch screen X offset calibration constant
-//          tsToLCDScalerX = touch screen X scaler calibration constant
-//          tsToLCDOffsetY = touch screen Y offset calibration constant
-//          tsToLCDScalerY = touch screen Y scaler calibration constant
+//  Enter:  tsToLCDOffsetX_low = touch screen calibration min X
+//          tsToLCDOffsetX_high = touch screen calibration max X
+//          tsToLCDOffsetY_low = touch screen calibration min Y
+//          tsToLCDOffsetY_high = touch screen calibration min Y
 //
-void TeensyUserInterface::setTouchScreenCalibrationConstants(int tsToLCDOffsetX, 
-  float tsToLCDScalerX, int tsToLCDOffsetY, float tsToLCDScalerY)
+void TeensyUserInterface::setTouchScreenCalibrationConstants(int tsToLCDOffsetX_low, 
+  int tsToLCDScalerX_high, int tsToLCDOffsetY_low, int tsToLCDScalerY_high)
 {
-  touchScreenToLCDOffsetX = tsToLCDOffsetX;
-  touchScreenToLCDScalerX = tsToLCDScalerX;
-  touchScreenToLCDOffsetY = tsToLCDOffsetY;
-  touchScreenToLCDScalerY = tsToLCDScalerY;
+  touchScreenToLCDOffsetX_low = tsToLCDOffsetX_low;
+  touchScreenToLCDOffsetX_high = tsToLCDOffsetX_high;
+  touchScreenToLCDOffsetY_low = tsToLCDOffsetY_low;
+  touchScreenToLCDOffsetY_high = tsToLCDOffsetY_high;
 }
 
 
@@ -2920,10 +3527,10 @@ boolean TeensyUserInterface::getTouchScreenCoords(int *xLCD, int *yLCD)
   //
   // convert the coordinates into LCD space
   //
-  int x = (int)((float)xRaw / touchScreenToLCDScalerX) - touchScreenToLCDOffsetX;
+  int x = map(xRaw, touchScreenToLCDOffsetX_low, touchScreenToLCDOffsetX_high, 0, lcdWidth);
   *xLCD = constrain(x, 0, lcdWidth - 1);
 
-  int y = (int)((float)yRaw / touchScreenToLCDScalerY) - touchScreenToLCDOffsetY;
+  int y = map(yRaw, touchScreenToLCDOffsetY_low, touchScreenToLCDOffsetY_high, 0, lcdHeight);
   *yLCD = constrain(y, 0, lcdHeight - 1);
 
   return(true);
@@ -2967,7 +3574,11 @@ boolean TeensyUserInterface::getRAWTouchScreenCoords(int *xRaw, int *yRaw)
 //
 void TeensyUserInterface::lcdInitialize(int lcdOrientation, const ui_font &font)
 {
+  #if __has_include("ST7796_t3.h")
+  lcd->init(320, 480);
+  #else
   lcd->begin();
+  #endif
   lcdSetOrientation(lcdOrientation);
   lcdClearScreen(LCD_BLACK);
   lcdSetFontColor(LCD_WHITE);  

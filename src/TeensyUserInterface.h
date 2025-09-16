@@ -33,7 +33,14 @@
 #ifndef TeensyUserInterface_h
 #define TeensyUserInterface_h
 
+#if __has_include("ILI9341_t3.h")
 #include <ILI9341_t3.h>
+#elif __has_include("ST7796_t3.h")
+#include <ST7796_t3.h>
+#define ILI9341_t3 ST7796_t3
+#elif __has_include("ILI9488_t3.h")
+#define ILI9341_t3 ILI9488_t3
+#endif
 
 
 //
@@ -161,6 +168,23 @@ typedef struct
 
 
 //
+// definition of a Slider 
+//
+typedef struct 
+{
+  const char *labelText;
+  int value;
+  int minimumValue;
+  int maximumValue;
+  int stepAmount;
+  int centerX;
+  int centerY;
+  int width;
+  int state;
+} SLIDER;
+
+
+//
 // definition of an entry in menu's table
 //
 typedef struct _MENU_ITEM
@@ -274,10 +298,17 @@ class TeensyUserInterface
     void drawSelectionBox(SELECTION_BOX &selectionBox);
     boolean checkForSelectionBoxTouched(SELECTION_BOX &selectionBox);
 
+    void drawSlider(SLIDER &slider);
+    void drawSliderBall(SLIDER &slider, uint16_t ballColor);
+    boolean checkForSliderTouched(SLIDER &slider);
+
+    boolean numericKeyPad(const char *titleBar, float &value, float minValue, float maxValue);
+    boolean numericKeyPad(const char *titleBar, int &value, int minValue, int maxValue);
+
     boolean checkForTouchEventInRect(int eventType, int rectX1, int rectY1, int rectX2, int rectY2);
     void getTouchEvents(void);
     void setDefaultTouchScreenCalibrationConstants(int lcdOrientation);
-    void setTouchScreenCalibrationConstants(int tsToLCDOffsetX, float tsToLCDScalerX, int tsToLCDOffsetY, float tsToLCDScalerY);
+    void setTouchScreenCalibrationConstants(int tsToLCDOffsetX_low, int tsToLCDOffsetX_high, int tsToLCDOffsetY_low, int tsToLCDOffsetY_high);
     boolean getTouchScreenCoords(int *xLCD, int *yLCD);
 
     void lcdClearScreen(uint16_t color);
@@ -325,6 +356,7 @@ class TeensyUserInterface
     int readConfigurationInt(int EEPromAddress, int defaultValue);
     void writeConfigurationFloat(int EEPromAddress, float value);
     float readConfigurationFloat(int EEPromAddress, float defaultValue);
+    boolean getRAWTouchScreenCoords(int *xRaw, int *yRaw);
 
 
 
@@ -352,10 +384,10 @@ class TeensyUserInterface
 
     int numberBoxRepeatCount;
 
-    int touchScreenToLCDOffsetX;
-    float touchScreenToLCDScalerX;
-    int touchScreenToLCDOffsetY;
-    float touchScreenToLCDScalerY;
+    int touchScreenToLCDOffsetX_low;
+    int touchScreenToLCDOffsetX_high;
+    int touchScreenToLCDOffsetY_low;
+    int touchScreenToLCDOffsetY_high;
     int touchState;
 
 
@@ -389,9 +421,14 @@ class TeensyUserInterface
     void getCoordsOfSelectionBoxCell(SELECTION_BOX &selectionBox, int cellNumber, int *X, int *Y, int *width, int *height);
     int countSelectionBoxChoices(SELECTION_BOX &selectionBox);
 
+    int getSliderBallXPosition(SLIDER &slider);
+    int getBallsValue(SLIDER &slider, int lcdX);
+
+    void keypad_DisplayValueInStringBuf(void);
+    void keypad_AddCharToStringBuf(char c, boolean &firstCharEntered);
+
     void touchScreenInitialize(int lcdOrientation);
     void touchScreenSetOrientation(int lcdOrientation);
-    boolean getRAWTouchScreenCoords(int *xRaw, int *yRaw);
      
     void lcdInitialize(int lcdOrientation, const ui_font &font);
     void lcdSetOrientation(int lcdOrientation);

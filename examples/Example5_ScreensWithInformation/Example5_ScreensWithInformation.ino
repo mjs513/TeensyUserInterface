@@ -17,10 +17,14 @@
 
 // ***********************************************************************
 
+//#include <font_Arial.h>
+//#include <font_ArialBold.h>
 #include <ST7796_t3.h>
-#include <TeensyUserInterface.h>
-#include <font_Arial.h>
+#include <st7735_t3_font_Arial.h>
+//#include <st7735_t3_font_ArialBold.h>
 #include <font_ArialBold.h>
+#include <XPT2046_Touchscreen.h>
+#include <TeensyUserInterface.h>
 
 
 //
@@ -41,13 +45,15 @@ void setup()
   //
   const int LCD_CS_PIN = 10;
   const int LCD_DC_PIN = 9;
-  const int TOUCH_CS_PIN = 27;
+  const int TOUCH_CS_PIN = 27; // 8;
   
   //
   // setup the LCD orientation, the default font and initialize the user interface
   //
   ui.begin(LCD_CS_PIN, LCD_DC_PIN, TOUCH_CS_PIN, LCD_ORIENTATION_LANDSCAPE_4PIN_RIGHT, Arial_9_Bold);
   ui.setTouchScreenCalibrationConstants(150, 3921, 206, 3934);
+
+  ui.invertDisplay(false);
   //
   // use a grayscale color palette
   //

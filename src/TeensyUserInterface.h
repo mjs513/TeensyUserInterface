@@ -42,6 +42,52 @@
 #define ILI9341_t3 ILI9488_t3
 #endif
 
+/********************************/
+/*  For ILI9341 controls        */
+/********************************/
+
+#define G_REPAINT 0
+#define G_DRAWOVER 1
+#define BELOW 0
+#define ABOVE 1
+
+#define SLIDER_HANDLE_SIZE 16
+#define HANDLE_NONE 0
+#define HANDLE_CIRCLE 1
+#define HANDLE_SQUARE 2
+#define HANDLE_TRIANGLE_1 3
+#define HANDLE_TRIANGLE_2 4
+#define HANDLE_TRIANGLE_3 5
+#define HANDLE_RECTANGLE 6
+
+#define LOCATION_TOP 0
+#define LOCATION_BOTTOM 1
+
+#define DISABLED 0
+#define ENABLED 1
+
+#define MAX_GRAPHS 10
+
+
+#define B_PRESSED true
+#define B_RELEASED false
+#define TFT_DEBOUNCE 100  // debounce delay to minimize screen repress
+
+#define CORNER_AUTO   -1
+#define CORNER_SQUARE  0
+
+#define  MAX_OPTION 20
+#define OPTION_BUTTON_RADIUS 10
+
+#define CHECKBOX_SIZE 20
+
+#define C_DISABLE_LIGHT 0xC618
+#define C_DISABLE_MED	0x7BCF
+#define C_DISABLE_DARK	0x3186
+#define MAXCHARLEN 31
+#define MAXOPTIONS 13
+
+/**************************************/
 
 //
 // lcd display screen orientations
@@ -62,6 +108,7 @@ const uint16_t LCD_DARKCYAN =    0x03EF;
 const uint16_t LCD_MAROON =      0x7800;
 const uint16_t LCD_PURPLE =      0x780F;
 const uint16_t LCD_OLIVE =       0x7BE0;
+const uint16_t LCD_GREY =        0xC618;
 const uint16_t LCD_LIGHTGREY =   0xC618;
 const uint16_t LCD_DARKGREY =    0x7BEF;
 const uint16_t LCD_BLUE =        0x001F;
@@ -215,7 +262,6 @@ const byte MENU_ITEM_TYPE_END_OF_MENU      = 5;
 #define MENU_COLUMNS_3  ((void (*)()) 3)
 #define MENU_COLUMNS_4  ((void (*)()) 4)
 
-
 //
 // types of touch events
 //
@@ -311,6 +357,8 @@ class TeensyUserInterface
     void setTouchScreenCalibrationConstants(int tsToLCDOffsetX_low, int tsToLCDOffsetX_high, int tsToLCDOffsetY_low, int tsToLCDOffsetY_high);
     boolean getTouchScreenCoords(int *xLCD, int *yLCD);
 
+    void invertDisplay(bool invert);
+
     void lcdClearScreen(uint16_t color);
     void lcdDrawPixel(int x, int y, uint16_t color);
     void lcdDrawLine(int x1, int y1, int x2, int y2, uint16_t color);
@@ -389,6 +437,7 @@ class TeensyUserInterface
     int touchScreenToLCDOffsetY_low;
     int touchScreenToLCDOffsetY_high;
     int touchState;
+    int touchOrient;
 
 
     //
@@ -433,6 +482,706 @@ class TeensyUserInterface
     void lcdInitialize(int lcdOrientation, const ui_font &font);
     void lcdSetOrientation(int lcdOrientation);
 };
+
+/**********************/
+/* ILI9341_controls.h */
+/**********************/
+class BarChartA {
+
+public:
+
+	BarChartA();
+
+	void init(uint16_t ArcRadius, uint16_t ArcCenterY, uint16_t BarWidth, uint16_t OffsetFromTop, uint16_t SweepAngle, uint8_t Segments, float ScaleLow, float ScaleHigh);
+
+	void draw(float Value);
+
+	void setScale(float ScaleLow, float ScaleHigh);	
+
+	void setBars(uint16_t SweepAngle, uint16_t Segments, uint16_t BarWidth, float GapSize);
+	
+	void setSectionColors(uint16_t ColorL, uint16_t ColorM,uint16_t ColorH, uint16_t ColorV);
+	
+	void setSectionSize(float Divider1, float Divider2);
+
+private:
+	ILI9341_t3 			*d;
+	float p1x= 0.0f, p1y= 0.0f, p2x= 0.0f, p2y= 0.0f, p3x= 0.0f, p3y= 0.0f, p4x= 0.0f, p4y= 0.0f, drawangle= 0.0f;
+	uint16_t rad = 800, xoffset = 160, yoffset = 500, topoffset = 30;
+	uint16_t sweepangle = 22;
+	float startangle = 0.0f;
+	uint16_t segments = 44;
+	float width = 20, gap = 0.003;
+	float arcangle = 0;
+	uint16_t i = 0, barcolor;
+	float low = 0.0f, high = 1024.0f;
+	uint16_t	bars = 0;
+	uint16_t barwidth = 0;
+	uint8_t	divider = 0;
+	float tempval = 0.0f;
+	uint16_t color_l = 0x07E0;
+	uint16_t color_m = 0xFFE0;
+	uint16_t color_h = 0xF800;
+	uint16_t color_v = 0x52AA;
+	float divider_1= 0.5f;
+	float divider_2= 0.75f;
+	float divider1= 0.5f;
+	float divider2=  0.75f;
+	float MapFloat(float x, float in_min, float in_max, float out_min, float out_max);
+};
+
+
+class BarChartH {
+
+public:
+
+	BarChartH();
+
+	void init(float GraphXLoc, float GraphYLoc, float GraphWidth, float GraphHeight, float ScaleLow, float ScaleHigh, float ScaleInc, const char *Title, uint16_t TextColor, uint16_t BorderColor, uint16_t BarColor, uint16_t BarBColor, uint16_t BackColor,const ILI9341_t3_font_t &TitleFont , const ILI9341_t3_font_t &ScaleFont );
+
+  void setBars(uint16_t NumberofBars,float BarWidth, uint8_t DividerSize);
+
+	void showScale(bool val);
+
+	void setBarColor(uint16_t val = 0xF800);
+
+	void draw(float val);
+
+	void refresh();
+
+	void setScale(float ScaleLow, float ScaleHigh, float ScaleInc);	
+	
+	void setTitleText(const char *Title, const ILI9341_t3_font_t &TitleFont );	
+
+	void showTitle(bool val);
+	
+	// allows bar segments as opposed to one large block, construct the object then override with these methods
+	void useSegmentBars(bool val);
+	void setSize(uint16_t Left, uint16_t Top, uint16_t Wide, uint16_t High, uint8_t Divider);
+	void setSectionColors(uint16_t ColorL, uint16_t ColorM,uint16_t ColorH, uint16_t ColorV);
+	void setSectionSize(float Divider1, float Divider2);
+	void setSectionSizeActual(float Divider1, float Divider2);
+	float getBars();
+	float getActualWidth();
+
+
+private:
+		ILI9341_t3_font_t	tf;
+		ILI9341_t3_font_t	sf;
+		bool	st = true, ss = true;
+		char	titxt[40];
+		char	sc[20];
+		char	cc[2] = "D";
+		char	text[30];
+		float	XLow;
+		float	XHigh;
+		float	XInc;
+		int Dec, tLen, tHi;
+		float	Low;
+		float	High;
+		float	Inc;
+		float	barinc;
+		uint16_t	bars = 0;
+		uint16_t barwidth = 0;
+		uint16_t barcolor = 0;
+		uint8_t	divider = 0;
+		float	gx;
+		float	gy;
+		float	gw;
+		float	gh;
+		uint16_t color_l = 0;
+		uint16_t color_m = 0;
+		uint16_t color_h = 0;
+		uint16_t color_v = 0;
+		bool bartype = false;
+		float divider_1= 0.0f;
+		float divider_2= 0.0f;
+		float divider1= 0.0f;
+		float divider2= 0.0f;
+		uint16_t cnt = 0;
+		uint16_t tc;
+		uint16_t oc;
+		uint16_t rc;
+		uint16_t bc;
+		uint16_t ac;
+		bool redraw;
+		float stepval, range, TempY, level, i, data;
+		float MapFloat(float x, float in_min, float in_max, float out_min, float out_max);
+};
+
+
+class BarChartV {
+
+public:
+
+	BarChartV();
+
+	void init(float GraphXLoc, float GraphYLoc, float GraphWidth, float GraphHeight, float ScaleLow, float ScaleHigh, float ScaleInc, const char *Title, uint16_t TextColor, uint16_t BorderColor, uint16_t BarColor, uint16_t BarBlankColor, uint16_t BackgroundColor,const ILI9341_t3_font_t &TitleFont , const ILI9341_t3_font_t &ScaleFont );
+
+	void setBarColor(uint16_t val = 0xF800);
+
+	void draw(float val);
+	
+	void refresh();
+
+	void setScale(float ScaleLow, float ScaleHigh, float ScaleInc);
+
+	void showTitle(bool val);
+
+	void showScale(bool val);
+	
+	// allows bar segments as opposed to one large block, construct the object then override with these methods
+	void useSegmentBars(bool val);
+	void setBars(uint16_t NumberofBars,uint8_t BarHeight, uint8_t DividerSize);
+	void setSize(uint16_t Left, uint16_t Top, uint16_t Wide, uint16_t High, uint8_t Divider);
+	void setSectionColors(uint16_t ColorL, uint16_t ColorM,uint16_t ColorH, uint16_t ColorV);
+	void setSectionSize(float Divider1, float Divider2);
+	void setSectionSizeActual(float Divider1, float Divider2);
+	float getBars();
+	float getActualHeight();
+
+private:
+
+		ILI9341_t3_font_t	tf;
+		ILI9341_t3_font_t	sf;
+		bool	st = true, ss = true;
+		char	ti[40];
+		char	sc[20];
+		char	cc[2] = "D";
+		char	text[30];
+		float	XLow;
+		float	XHigh;
+		float	XInc;
+		int Dec, tLen, tHi;
+		float	Low;
+		float	High;
+		float	Inc;
+		float	barinc;
+		uint16_t	bars = 0;
+		uint8_t barheight = 0;
+		uint16_t barcolor = 0;
+		uint8_t	divider = 0;
+		uint16_t color_l = 0;
+		uint16_t color_m = 0;
+		uint16_t color_h = 0;
+		uint16_t color_v = 0;
+		bool bartype = false;
+		float divider_1= 0.0f;
+		float divider_2= 0.0f;
+		float divider1= 0.0f;
+		float divider2= 0.0f;
+		uint16_t cnt = 0;
+		float	gx;
+		float	gy;
+		float	gw;
+		float	gh;
+		
+		uint16_t tc;
+		uint16_t oc;
+		uint16_t rc;
+		uint16_t bc;
+		uint16_t ac;
+		bool redraw;
+		float stepval, range, TempY, level, i, data;
+		float MapFloat(float x, float in_min, float in_max, float out_min, float out_max);
+};
+
+class CGraph {
+
+public:
+
+	CGraph( float GraphXLoc, float GraphYLoc, float GraphWidth, float GraphHeight, float XAxisLow, float XAxisHigh, float XAxisInc, float YAxisLow, float YAxisHigh, float YAxisInc);
+
+	void init(const char *Title, const char *XAxis, const char *YAxis, uint16_t TextColor, uint16_t GridColor, uint16_t AxisColor, uint16_t BackColor,uint16_t PlotkColor, const ILI9341_t3_font_t &TitleFont , const ILI9341_t3_font_t &AxisFont );
+
+	void plot(int ID, float y);
+
+	void setX(float x);
+
+	int add(const char * DataLabel, uint16_t DataColor );
+
+	void setYAxis(float Ylow, float YHigh, float YInc);
+
+	void setXAxis(float XAxisLow, float XAxisHigh, float XAxisInc);
+
+	void showTitle(bool val);
+
+	void showLegend(bool val);
+
+	void showAxisLabels(bool val);
+
+	void drawLegend(byte Location);
+	
+	void resetStart(int ID);
+	
+	void showXScale(bool val);
+	
+	void setXTextOffset(int val);
+	
+	void setYTextOffset(int val);
+	
+	void setYLegendOffset(int val);
+		
+	void setXTextScale(float val);
+	
+	void showYScale(bool val);
+
+	void setMarkerSize(int ID, byte val);
+
+	void setLineThickness(int ID, byte val);
+	
+	void setLineColor(int ID, uint16_t LineColor);
+
+	void setTitle(const char *Title);
+
+	void setXAxisName(const char *Name);
+
+	void setYAxisName(const char *Name);
+
+	void drawGraph();
+
+private:
+		ILI9341_t3_font_t	tf;
+		ILI9341_t3_font_t	af;
+		int ID = 0;
+		float x, y;
+		float	i, j;
+		bool	st, sl, sal, sxs, sys;
+		float	Delta;
+		int k;
+		float	XLow, XHigh, XInc;
+		float	YLow, YHigh, YInc;
+		float XTextScale;
+		bool RedrawGraph = true;
+		bool HaveFirstPoint[10];
+		float	XPoint, YPoint, oXPoint[10], oYPoint[10], TextHeight;
+		float	XDec = 0.0, YDec = 0.0;
+		char	text[30];
+		byte	oOrientation = 0;
+		float	gx, gy, gw, gh;
+		int StartPointX, StartPointY, XScaleOffset, YScaleOffset, YlegendOffset;
+		char buf0[20], buf1[20], buf2[20], buf3[20], buf4[20], buf5[20], buf6[20], buf7[20], buf8[20], buf9[20];
+		char    *dl[20] = {buf0, buf1, buf2, buf3, buf4, buf5, buf6, buf6, buf8, buf9};
+		char	title[40];
+		byte tl = 0; // title location
+		char	xatitle[40];
+		char	yatitle[40];
+		uint16_t tc;
+		uint16_t dc[10];
+		uint16_t ac;
+		uint16_t gc;
+		uint16_t bc;
+		uint16_t pc;
+		uint16_t linecolor[10];
+		byte pdia[10];
+		byte linet[10];
+		float MapFloat(float x, float in_min, float in_max, float out_min, float out_max);
+
+};
+
+class Dial {
+public:
+	Dial(int CenterX, int CenterY, int DialRadius, float LowVal , float HiVal , float ValInc, float SweepAngle);
+	
+	void init(uint16_t NeedleColor, uint16_t DialColor, uint16_t TextColor, uint16_t TickColor, const char *Title, const ILI9341_t3_font_t &TitleFont , const ILI9341_t3_font_t &DataFont );
+
+	void draw(float val);
+		
+private:
+	
+	bool Redraw = true;
+	ILI9341_t3 			*d;			
+	ILI9341_t3_font_t	tf;
+	ILI9341_t3_font_t	df;
+	char t[40];
+	int cx;
+	int cy;
+	int dr;
+	float lv;
+	float hv;
+	float inc;
+	float sa;
+	uint16_t nc;
+	uint16_t dc;
+	uint16_t tc;
+	uint16_t ic;
+	float degtorad;
+	float offset, stepval, angle, data;
+	float i;
+
+	//variables to track new needle values
+	float ix;
+	float iy;
+	float ox;
+	float oy;
+	float tx;
+	float ty;
+	float dx;
+	float dy;
+	float lx;
+	float rx;
+	float ly;
+	float ry;
+	int tLen, tHi;
+	char buf[38];
+	int dec;
+	// variables to track previous needle values
+	float px;
+	float py;
+	float pix;
+	float piy;
+	float plx;
+	float ply;
+	float prx;
+	float pry;
+
+};
+
+class SliderH {
+
+ public:
+
+	SliderH();		// class constructor
+		
+	void init(uint16_t SliderX, uint16_t SliderY, uint16_t SliderW, float ScaleLow, float ScaleHi, float Scale, float Snap, uint16_t SliderColor, uint16_t BackgroundColor, uint16_t HandleColor);		// initializer
+  
+	void draw(float val);					// method to draw complete slider
+		
+	bool slide(float ScreenX, float ScreenY);			// method to move handle as user drags finger over handle, this method automatically looks for a valid range press
+  
+	void setColors(uint16_t SliderColor, uint16_t BackgroundColor, uint16_t HandleColor);		// way to reset colors (useful for drawing enabled or disabled)
+
+	void setHandleColor(uint16_t HandleColor);	// method to just draw the handle (useful for showing handle in green for OK value
+
+	void setDisableColor(uint16_t HandleColor, uint16_t SliderColor);	// method to just draw the handle (useful for showing handle in green for OK value
+
+	void setHandleSize(int size);
+
+	void setHandleSize(int size, int width);
+
+	void disable();
+
+	void enable();
+
+	void show();
+
+	void hide();
+
+    void setBarThickness(byte Thickness);
+
+	void setHandleShape(byte shape);
+
+	void drawSliderColor(bool color);
+
+	void setPressDebounce(byte Debounce);
+
+	void resetScale(float ScaleLow, float ScaleHi, float Scale, float Snap);
+
+	float value;
+
+private:
+
+	ILI9341_t3 *d;			// the display object
+	uint16_t sColor;		// the slider color
+	uint16_t bColor;		// the slider background color
+	uint16_t hColor;		// the sliders drag handle
+	uint16_t dsColor;
+	uint16_t dhColor;
+	uint16_t tsColor;
+	uint16_t ssColor;
+	uint16_t thColor;
+	float x;
+	float y;
+	uint16_t l;			// the left coordinate of the scale
+	uint16_t t;			// the top coordinate of the scale
+	uint16_t w;			// the width of the scale
+	byte bt;			// the thockness of the bar
+	float ox;			// the old screen x value where user pressed
+	bool enabled;
+	float sl;				// the scale lower value
+	float sh;				// the scale upper value
+	float pos;				// the position on the scale
+	float sn;				// the snap increment
+	float sc;				// the scale increment
+	float ce;				// the tick mark where zero is (for drawing heavy line on +/- scales
+	float i;				// loop counter
+	int handlesize;
+	int handlewidth;	
+	byte handleshape;
+	bool visible;
+	bool colorscale;		// flag to draw slider in handle color
+	float MapFloat(float x, float fromLow, float fromHigh, float toLow, float toHigh); // why Arduino has no mapping for floats is beyond me, here it is...
+	byte debounce;
+	
+  };
+
+class SliderV {
+
+ public:
+
+	SliderV(); // class constructor
+  
+	void init(uint16_t SliderX, uint16_t SliderY, uint16_t SliderH, float ScaleLow, float ScaleHi, float scale, float snap, uint16_t SliderColor, uint16_t BackgroundColor, uint16_t HandleColor);	// initializer
+   
+	void draw(float val);						// method to draw complete slider
+   
+	bool slide(uint16_t ScreenX, uint16_t ScreenY);	   // method to move handle as user drags finger over handle, this method automatically looks for a valid range press
+    
+	void setColors(uint16_t SliderColor, uint16_t BackgroundColor, uint16_t HandleColor);	// way to reset colors (useful for drawing enabled or disabled)
+
+	void setHandleColor(uint16_t HandleColor);		// method to just draw the handle (useful for showing handle in green for OK value
+
+	void setHandleSize(int val);
+
+	void setHandleSize(int size, int width);
+	
+	void setHandleShape(byte val);
+
+	void drawSliderColor(bool val);
+
+	void setDisableColor(uint16_t HandleColor, uint16_t SliderColor);	// method to just draw the handle (useful for showing handle in green for OK value
+
+	void setScale(float ScaleLow, float ScaleHi, float scale = 0.0, float snap= 0.0);
+
+	void setBarThickness(byte Thickness);
+
+	void disable();
+
+	void enable();
+
+	void show();
+
+	void hide();
+
+	void setPressDebounce(byte Debounce);
+
+	float value;
+
+private:
+
+	uint16_t sColor;		// the slider color
+	uint16_t bColor;		// the slider background color
+	uint16_t hColor;		// the sliders drag handle
+	uint16_t dsColor;
+	uint16_t dhColor;
+	uint16_t tsColor;
+	uint16_t thColor;
+	uint16_t x;			// the left coordinate of the scale
+	uint16_t y;			// the top coordinate of the scale
+	uint16_t l;			// the left coordinate of the scale
+	uint16_t t;			// the top coordinate of the scale
+	uint16_t w;			// the with of the scale
+	uint16_t h;			// the with of the scale
+	byte bt;			// the thockness of the bar
+	float oy;			// the old screen y value where user pressed
+	float sl;				// the scale lower value
+	float sh;				// the scale upper value
+	float pos;				// the screen coordinate position
+	float sn;				// the snap increment
+	float sc;				// the scale increment
+	float ce;				// the tick mark where zero is (for drawing heavy line on +/- scales
+	float i;				// loop counter
+	byte tl;
+	bool colorscale;		// flag to draw slider in handle color
+	float MapFloat(float x, float fromLow, float fromHigh, float toLow, float toHigh);// why Arduino has no mapping for floats is beyond me, here it is...
+	int tLen, tHi;
+	int handlesize;
+	int handlewidth;
+	byte handleshape;
+	bool enabled;
+	bool visible;
+	byte debounce;
+  };
+
+class SliderOnOff {
+
+ public:
+	
+	SliderOnOff(uint16_t SliderX, uint16_t SliderY, uint16_t SliderW, uint16_t SliderH, uint16_t SliderColor, uint16_t BackColor, uint16_t OnColor, uint16_t OffColor);// class constructor
+  
+	void draw(bool state);			// method to draw complete slider
+   
+	bool slide(float ScreenX,float ScreenY);	// method to move handle as user drags finger over handle, this method automatically looks for a valid range press
+
+	bool changed();						// method to return if state change, useful for determining if a something should be done but not done unless state change
+
+	bool getValue();
+     
+private:
+
+	uint16_t _sColor;		// the slider color
+	uint16_t _bColor;		// the slider background color
+	uint16_t _onColor;		// the sliders on color
+	uint16_t _offColor;		// the sliders on color
+	uint16_t _l;				// the left coordinate of the scale
+	uint16_t _t;				// the top coordinate of the scale
+	uint16_t _w;				// the with of the scale
+	uint16_t _h;				// the with of the scale
+	bool _pos;				// the screen coordinate position
+	bool _changed;			//flag to track if button was just changed
+  };
+
+
+/*
+
+Checkbox class
+
+*/
+
+
+class CheckBox {
+public:
+	CheckBox();
+
+	void init(int16_t ButtonX, uint16_t ButtonY, uint16_t OutlineColor, uint16_t UPColor, uint16_t DownColor, uint16_t TextColor, uint16_t BackgroundColor, int TextOffsetX,int TextOffsetY, const char *Text, const ILI9341_t3_font_t &TextFont );
+
+	void draw(bool val); 
+	bool press(int16_t SceenX, int16_t ScreenY); 
+	void show();
+	void hide();
+	void disable();
+	void enable();
+	void resize(int16_t ButtonX, int16_t ButtonY, uint8_t Size);
+	void setColors(uint16_t OutlineColor, uint16_t UPColor, uint16_t DownColor, uint16_t BackgroundColor, uint16_t DisableOutlineColor,  uint16_t DisableTextColor, uint16_t DisableUPColor, uint16_t DisableDownColor); 
+	void setText(int TextOffsetX,int TextOffsetY, const char *Text, const ILI9341_t3_font_t &TextFont); 
+	void setCornerRadius(int val);		
+	bool isEnabled();;
+	bool isVisibled();;
+	void setPressDebounce(byte Debounce);
+	bool value;
+
+private:
+	char label[60];
+	ILI9341_t3_font_t f;
+	int16_t x, y;
+	uint16_t s, ct;
+	uint16_t oc, uc, dc, bc, doc, duc, ddc, dtc, tc;
+	bool state;
+	int tox, toy;
+	bool enabled;
+	bool visible;
+	byte debounce;
+};
+
+
+/*
+
+Checkbox class
+
+*/
+
+class OptionButton {
+
+	
+public:
+	OptionButton();
+
+	void init(uint16_t OutlineColor, uint16_t SelectedColor, uint16_t UnSelectedColor, int16_t TextColor, uint16_t BackgroundColor, int TextOffsetX,int TextOffsetY, const ILI9341_t3_font_t &TextFont);
+	int add(uint16_t ButtonX, uint16_t ButtonY,const char *Text, float OptionValue = -32001 ); 
+	void draw(int OptionID); 
+	bool press(uint16_t ScreenX, uint16_t ScreenY);
+	void select(int val);	
+	void show(); 
+	void hide();
+	void disable();
+	void enable();
+	void resize(byte radius);
+	void setColors(uint16_t OutlineColor, uint16_t SelectedColor, uint16_t UnSelectedColor, uint16_t TextColor, uint16_t BackgroundColor, uint16_t DisableOutlineColor, uint16_t DisableSelColor, uint16_t DisableUnSelColor, uint16_t DisableTextColor); 
+	void setFont(int TextOffsetX,int TextOffsetY, const ILI9341_t3_font_t &TextFont);
+
+	void setText(int ID, const char *Text);;
+	int selected(); 
+	bool isEnable();
+	bool isVisible();
+	void setPressDebounce(byte Debounce);
+  
+	float value;
+	int option;
+
+private:
+	char label[MAX_OPTION][60];
+	ILI9341_t3_font_t f;
+	uint16_t x[MAX_OPTION], y[MAX_OPTION];
+	float rv[MAX_OPTION];
+	uint16_t r;
+	int i, tox, toy;
+	int ID;
+	int current;
+	uint16_t oc, sc, uc, bc, tc, doc, dsc, duc, dtc;
+	bool enabled;
+	bool visible;
+	byte debounce;
+};
+
+
+class SliderD {
+
+ public:
+
+	SliderD(); // class constructor
+  
+	void init(uint16_t SliderX, uint16_t SliderY, uint16_t SliderR, float SweepAngle, float ScaleLow, float ScaleHi, uint16_t SliderColor, uint16_t BackgroundColor, uint16_t HandleColor);	// initializer
+   
+	void draw(float val);						// method to draw complete slider
+   
+	bool slide(uint16_t ScreenX, uint16_t ScreenY);	   // method to move handle as user drags finger over handle, this method automatically looks for a valid range press
+    
+	void setColors(uint16_t SliderColor, uint16_t BackgroundColor, uint16_t HandleColor);	// way to reset colors (useful for drawing enabled or disabled)
+
+	void setHandleColor(uint16_t HandleColor);		// method to just draw the handle (useful for showing handle in green for OK value
+
+	void setHandleSize(int val);
+
+	void drawSliderColor(bool val);
+
+	void setDisableColor(uint16_t HandleColor, uint16_t SliderColor);	// method to just draw the handle (useful for showing handle in green for OK value
+
+	void setScale(float ScaleLow, float ScaleHi);
+
+	void setRingThickness(byte Thickness);
+
+	void disable();
+
+	void enable();
+
+	void show();
+
+	void hide();
+
+	void setPressDebounce(byte Debounce);
+
+	float value;
+	bool state;
+
+private:
+
+	uint16_t sColor;		// the slider color
+	uint16_t bColor;		// the slider background color
+	uint16_t hColor;		// the sliders drag handle
+	uint16_t dsColor;
+	uint16_t dhColor;
+	uint16_t tsColor;
+	uint16_t thColor;
+	uint16_t x;			// the left coordinate of the scale
+	uint16_t y;			// the top coordinate of the scale
+	uint16_t r;			// the left coordinate of the scale
+	float sa, as, ae; // sweep angle, start angle, end angle
+	byte dt;
+	float sl;				// the scale lower value
+	float sh;				// the scale upper value
+	float angle, oangle, hx, hy;				// the screen coordinate position
+	float i;				// loop counter
+	float dist;
+	bool colorscale;		// flag to draw slider in handle color
+	bool pressed = false;
+	float MapFloat(float x, float fromLow, float fromHigh, float toLow, float toHigh);// why Arduino has no mapping for floats is beyond me, here it is...
+	int handlesize;
+	bool enabled;
+	bool visible, redraw;
+	byte debounce;
+	void DrawRing(float start, float end, uint16_t color);
+	void DrawHandle(float angle, uint16_t hColor, uint16_t sColor);
+  };
 
 // ------------------------------------ End ---------------------------------
 #endif

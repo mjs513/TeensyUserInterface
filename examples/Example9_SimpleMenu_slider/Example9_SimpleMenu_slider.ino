@@ -47,10 +47,11 @@
 
 
 // ***********************************************************************
-#include "ST7796_t3.h"
+#include <ST7796_t3.h>
+#include <st7735_t3_font_Arial.h>
+#include <st7735_t3_font_ArialBold.h>
+#include <Adafruit_FT6206.h>
 #include <TeensyUserInterface.h>
-#include <font_Arial.h>
-#include <font_ArialBold.h>
 
 
 //

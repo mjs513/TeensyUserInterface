@@ -179,7 +179,6 @@
 #endif
 #include "TeensyUserInterface.h"
 
-
 //
 // pointers to the LCD and Touch objects
 //
@@ -7256,3 +7255,1213 @@ void OptionButton::setPressDebounce(byte Debounce) {
 
 
 /************* End ILI9341_controls ******************/
+
+
+sliderM::sliderM(const std::string& sym, SLIDER_MODE type)
+{
+	s.symbol = sym;
+	s.orientation = type;
+}
+
+
+
+//sliderM::Slider sliderM::createSlider(const std::string& symbol, SLIDER_MODE type) {
+//    return Slider(symbol, type);
+//}
+
+void sliderM::setEnable(bool active)
+{
+   s.activated = active;
+}
+
+void sliderM::setPosition(int x, int y) {
+    s.xCenterLoc = x;
+    s.yCenterLoc = y;
+}
+
+void sliderM::init(int x, int y, int xsize, int ysize, bool bumpUp, bool bumpDwn) {
+    s.xCenterLoc = x;
+    s.yCenterLoc = y;
+    s.xSize = xsize;        // Length of slider body
+    s.ySize = ysize;       // thickness of slider body
+    s.withBumpUpArrow = bumpUp;
+    s.withBumpDownArrow = bumpDwn;
+    s.repeatEnabled = true;
+    s.activated = true;
+
+    s.bumpValue = 1;
+    s.minorTickSections = 10;
+    s.majorTickSections = 2;
+    s.xValueCenterLoc = x;
+    s.yValueCenterLoc = y - (ysize+5);
+    s.value = 127;
+    s.maxValue = 255;
+    s.minValue = 1;
+    s.placesAfterTheDecimal = 0;
+    s.placesBeforeTheDecimal = 3;
+    s.showPlusMinusSign = true;
+
+    s.valueColor = LCD_WHITE;
+    s.valueBgColor = LCD_BLACK;
+    s.backgroundColor = LCD_MDGREY;          //Color of interior of slider boder
+    s.borderColor = LCD_GREEN;              // Border color of slider - all
+    s.scaleColor = LCD_BLACK;               // color of the scale lines of the slider
+    s.handleColor = LCD_GREEN;              // Color of the indicator handle
+    s.handleBorderColor = LCD_BLACK;        // Color of the indicator handle border
+    s.bumpBackgroundColor = LCD_BLACK;      // Background colore for bump box
+
+    s.textWidthPrev = 0;                  // previous width...
+
+}
+
+void sliderM::setSliderColors(uint16_t valueColor, uint16_t valueBgColor, uint16_t backgroundColor, uint16_t borderColor)
+{
+    s.valueColor = valueColor;
+    s.valueBgColor = valueBgColor;
+    s.backgroundColor = backgroundColor;
+    s.borderColor = borderColor;
+}
+
+void sliderM::setAxis(float minValue, float maxValue, int minorTicks, int majorTicks)
+{
+    s.minorTickSections = minorTicks;
+    s.majorTickSections = majorTicks;
+    s.maxValue = maxValue;
+    s.minValue = minValue;
+}
+
+void sliderM::setHandle(int xCenter, int yCenter, uint16_t handleColor, uint16_t handleBorderColor)
+{
+    s.handleColor = handleColor;
+    s.handleBorderColor = handleBorderColor;
+    s.xValueCenterLoc = xCenter;
+    s.yValueCenterLoc = yCenter;
+
+}
+
+void sliderM::setHandleColors(uint16_t handleColor, uint16_t handleBorderColor)
+{
+    s.handleColor = handleColor;
+    s.handleBorderColor = handleBorderColor;
+}
+
+void sliderM::setBump(float bumpValue, bool repeatEnabled,  bool bumpUp, bool bumpDwn)
+{
+    s.withBumpUpArrow = bumpUp;
+    s.withBumpDownArrow = bumpDwn;
+    s.repeatEnabled = repeatEnabled;
+    s.bumpValue = bumpValue;
+}
+
+void sliderM::setBumpColor(uint16_t bumpBackgroundColor)
+{
+    s.bumpBackgroundColor = bumpBackgroundColor;
+}
+
+void sliderM::setSliderPrint(int placesBeforeTheDecimal, int placesAfterTheDecimal,bool showPlusMinusSign)
+{
+    s.placesAfterTheDecimal = placesAfterTheDecimal;
+    s.placesBeforeTheDecimal = placesBeforeTheDecimal;
+    s.showPlusMinusSign = showPlusMinusSign;
+}
+
+void sliderM::setValue(float value)
+{
+   s.value = value;
+}
+
+float sliderM::getValue()
+{
+   return s.value;
+}
+
+void sliderM::setValueFont(const ILI9341_t3_font_t *f, uint16_t color, uint16_t bgColor){
+   s.font = f;
+   lcd->setFont(*s.font);
+   s.valueColor = color;
+   s.valueBgColor = bgColor;
+}
+
+void sliderM::setDisabledColors(uint16_t bgColor, uint16_t borderColor, 
+                        uint16_t scaleColor, uint16_t handleColor, 
+                        uint16_t handleBorderColor)
+{
+  s.backgroundColorDisabled = bgColor;
+  s.borderColorDisabled = borderColor;
+  s.scaleColorDisabled = scaleColor;
+  s.handleColorDisabled = handleColor;
+  s.handleBorderColorDisabled = handleBorderColor;
+}
+
+int16_t sliderM::centerDrawText(const String text, unsigned int xCenterLoc, 
+                                     unsigned int yCenterLoc, uint16_t textColor, 
+                                     uint16_t textBackground, int16_t text_width_prev)
+{
+#if 0
+   unsigned int xOffset = (text.length() * 8) / 2;
+   unsigned int yOffset = 8;
+
+   lcd->setTextColor(textColor, textBackground);
+   lcd->setTextSize(1);
+
+   lcd->setCursor(xCenterLoc - xOffset, yCenterLoc - yOffset);
+   lcd->print(text);
+#else
+   int16_t x, y;
+   uint16_t  text_width, text_height;
+
+   lcd->setTextColor(textColor, textBackground);
+   lcd->setTextSize(1);
+
+   lcd->getTextBounds(text, 0, 0, &x, &y, &text_width, &text_height);
+   lcd->setCursor(xCenterLoc - text_width / 2, yCenterLoc - text_height / 2);
+   lcd->print(text);
+
+   // see if new width
+   if (text_width < text_width_prev) {
+      //Serial.printf("\nT %u %u (%d, %d, %d, %d), %u\n", xCenterLoc, yCenterLoc, x, y, text_width, text_height, text_width_prev);
+      //Serial.printf("(%d %d %d %d):%x\n", xCenterLoc - text_width_prev / 2, yCenterLoc - text_height / 2, (text_width_prev - text_width) / 2, text_height, textBackground);      
+      //Serial.printf("(%d %d %d %d):%x\n", xCenterLoc - (text_width / 2) + text_width, yCenterLoc - text_height / 2, (text_width_prev - text_width + 1) / 2, text_height, textBackground);      
+      lcd->fillRect(xCenterLoc + x - text_width_prev / 2, yCenterLoc - text_height / 2, (text_width_prev - text_width) / 2, text_height, textBackground);      
+      lcd->fillRect(xCenterLoc + x - (text_width / 2) + text_width, yCenterLoc - text_height / 2, (text_width_prev - text_width + 1) / 2, text_height, textBackground);
+   }
+
+
+   //static bool debug_rect = true;
+   //if (debug_rect) {
+   //   debug_rect = false;
+   //   d->drawRect(xCenterLoc - text_width / 2, yCenterLoc - text_height / 2, text_width, text_height, ST77XX_GREEN);
+   //   d->drawLine(xCenterLoc, yCenterLoc-2, xCenterLoc, yCenterLoc + 2, ST77XX_GREEN);
+   //   d->drawLine(xCenterLoc-2, yCenterLoc, xCenterLoc + 2, yCenterLoc, ST77XX_GREEN);
+   //   Serial.printf("(%u, %u) (%d %d %d %d)\n", xCenterLoc, yCenterLoc, x, y, text_width, text_height);
+   //}
+
+   return text_width;
+#endif   
+}  // centerDrawText
+
+// draw a slider
+void sliderM::drawSlider()
+{
+   int characterCount = 0;
+   String outString = "";
+
+   lcd->setFont(*s.font);
+
+   if (s.value < s.minValue)
+   {
+      s.value = s.minValue;
+   }
+
+   if (s.value > s.maxValue)
+   {
+      s.value = s.maxValue;
+   }
+
+   if (s.orientation == sliderM::SLIDER_MODE::SLIDER_MODE_HORIZONTAL)
+   {
+      if (s.activated)
+      {
+         // clear the bump down arrow area if enabled
+         if (s.withBumpDownArrow)
+         {
+            // clear the slider bump down arrow area
+            lcd->fillRect(s.xCenterLoc - (s.xSize / 2) - 42, s.yCenterLoc - (s.ySize / 2) - 3, 35, s.ySize + 6, s.bumpBackgroundColor);
+
+            // draw the slider bump down arrow outline
+            lcd->drawRect(s.xCenterLoc - (s.xSize / 2) - 42, s.yCenterLoc - (s.ySize / 2) - 3, 35, s.ySize + 6, s.borderColor);
+            lcd->drawRect(s.xCenterLoc - (s.xSize / 2) - 40, s.yCenterLoc - (s.ySize / 2) - 1, 31, s.ySize + 2, s.borderColor);
+
+            // draw the slider bump down arrow
+            for (int i = 0; i < 7; i++)
+            {
+               lcd->drawLine(s.xCenterLoc - (s.xSize / 2) - 23 - i, s.yCenterLoc - (7 - i), s.xCenterLoc - (s.xSize / 2) - 23 - i, s.yCenterLoc + (7 - i), s.handleColor);
+            }
+         }
+
+         // clear the bump up arrow area if enabled
+         if (s.withBumpUpArrow)
+         {
+            // clear the slider bump up arrow area
+            lcd->fillRect(s.xCenterLoc + (s.xSize / 2) + 9, s.yCenterLoc - (s.ySize / 2) - 3, 35, s.ySize + 6, s.bumpBackgroundColor);
+
+            // draw the slider bump up arrow outline
+            lcd->drawRect(s.xCenterLoc + (s.xSize / 2) + 9, s.yCenterLoc - (s.ySize / 2) - 3, 35, s.ySize + 6, s.borderColor);
+            lcd->drawRect(s.xCenterLoc + (s.xSize / 2) + 11, s.yCenterLoc - (s.ySize / 2) - 1, 31, s.ySize + 2, s.borderColor);
+
+            // draw the slider bump up arrow
+            for (int i = 0; i < 7; i++)
+            {
+               lcd->drawLine(s.xCenterLoc + (s.xSize / 2) + 30 - i, s.yCenterLoc - i - 1, s.xCenterLoc + (s.xSize / 2) + 30 - i, s.yCenterLoc + i + 1, s.handleColor);
+            }
+         }
+
+         // clear the entire slider
+         lcd->fillRect(s.xCenterLoc - (s.xSize / 2) - 7, s.yCenterLoc - (s.ySize / 2) - 3, s.xSize + 15, s.ySize + 6, s.backgroundColor);
+
+         // draw the slider outline
+         lcd->drawRect(s.xCenterLoc - (s.xSize / 2) - 7, s.yCenterLoc - (s.ySize / 2) - 3, s.xSize + 15, s.ySize + 6, s.borderColor);
+
+         // draw the slider handle
+         lcd->fillRect((int)map(s.value, s.minValue, s.maxValue, s.xCenterLoc - (s.xSize / 2), s.xCenterLoc + (s.xSize / 2)) - 6, s.yCenterLoc - (2 + s.ySize * 4 / 10), 13, (s.ySize * 8 / 10) + 4, LCD_BLACK);
+         lcd->fillRect((int)map(s.value, s.minValue, s.maxValue, s.xCenterLoc - (s.xSize / 2), s.xCenterLoc + (s.xSize / 2)) - 4, s.yCenterLoc - s.ySize * 4 / 10, 9, s.ySize * 8 / 10, s.handleColor);
+
+         // draw the slider guide line
+         lcd->drawLine(s.xCenterLoc - (s.xSize / 2), s.yCenterLoc, s.xCenterLoc + (s.xSize / 2), s.yCenterLoc, s.scaleColor);          // guide line
+
+         lcd->drawLine(s.xCenterLoc - (s.xSize / 2), s.yCenterLoc - 7, s.xCenterLoc - (s.xSize / 2), s.yCenterLoc + 7, s.scaleColor);  // left end
+         lcd->drawLine(s.xCenterLoc + (s.xSize / 2), s.yCenterLoc - 7, s.xCenterLoc + (s.xSize / 2), s.yCenterLoc + 7, s.scaleColor);  // right end
+
+         // draw the slider minor tick lines
+         for (unsigned int i = 1; i < s.minorTickSections; i++)
+         {
+            lcd->drawLine(s.xCenterLoc - s.xSize / 2 + (s.xSize * i / s.minorTickSections), s.yCenterLoc - 2, s.xCenterLoc - s.xSize / 2 + (s.xSize * i / s.minorTickSections), s.yCenterLoc + 2, s.scaleColor);      // minor tick lines
+         }
+
+         // draw the slider major tick lines
+         for (unsigned int i = 1; i < s.majorTickSections; i++)
+         {
+            lcd->drawLine(s.xCenterLoc - s.xSize / 2 + (s.xSize * i / s.majorTickSections), s.yCenterLoc - 4, s.xCenterLoc - s.xSize / 2 + (s.xSize * i / s.majorTickSections), s.yCenterLoc + 4, s.scaleColor);      // major tick lines
+         }
+      } else {
+         // clear the entire slider
+         lcd->fillRect(s.xCenterLoc - (s.xSize / 2) - 7, s.yCenterLoc - (s.ySize / 2) - 3, s.xSize + 15, s.ySize + 6, s.backgroundColorDisabled);
+
+         // draw the slider outline
+         lcd->drawRect(s.xCenterLoc - (s.xSize / 2) - 7, s.yCenterLoc - (s.ySize / 2) - 3, s.xSize + 15, s.ySize + 6, s.borderColorDisabled);
+
+         // draw the slider handle
+         lcd->fillRect((int)map(s.value, s.minValue, s.maxValue, s.xCenterLoc - (s.xSize / 2), s.xCenterLoc + (s.xSize / 2)) - 6, s.yCenterLoc - (2 + s.ySize * 4 / 10), 13, (s.ySize * 8 / 10) + 4, LCD_BLACK);
+         lcd->fillRect((int)map(s.value, s.minValue, s.maxValue, s.xCenterLoc - (s.xSize / 2), s.xCenterLoc + (s.xSize / 2)) - 4, s.yCenterLoc - s.ySize * 4 / 10, 9, s.ySize * 8 / 10, s.handleColorDisabled);
+
+         // draw the slider guide line
+         lcd->drawLine(s.xCenterLoc - (s.xSize / 2), s.yCenterLoc, s.xCenterLoc + (s.xSize / 2), s.yCenterLoc, s.scaleColorDisabled);          // guide line
+
+         lcd->drawLine(s.xCenterLoc - (s.xSize / 2), s.yCenterLoc - 7, s.xCenterLoc - (s.xSize / 2), s.yCenterLoc + 7, s.scaleColorDisabled);  // left end
+         lcd->drawLine(s.xCenterLoc + (s.xSize / 2), s.yCenterLoc - 7, s.xCenterLoc + (s.xSize / 2), s.yCenterLoc + 7, s.scaleColorDisabled);  // right end
+
+         // draw the slider minor tick lines
+         for (unsigned int i = 1; i < s.minorTickSections; i++)
+         {
+            lcd->drawLine(s.xCenterLoc - s.xSize / 2 + (s.xSize * i / s.minorTickSections), s.yCenterLoc - 2, s.xCenterLoc - s.xSize / 2 + (s.xSize * i / s.minorTickSections), s.yCenterLoc + 2, s.scaleColorDisabled);      // minor tick lines
+         }
+
+         // draw the slider major tick lines
+         for (unsigned int i = 1; i < s.majorTickSections; i++)
+         {
+            lcd->drawLine(s.xCenterLoc - s.xSize / 2 + (s.xSize * i / s.majorTickSections), s.yCenterLoc - 4, s.xCenterLoc - s.xSize / 2 + (s.xSize * i / s.majorTickSections), s.yCenterLoc + 4, s.scaleColorDisabled);      // major tick lines
+         }
+      }
+   } else {  // SLIDER_MODE_VERTICAL
+      if (s.activated)
+      {
+         // clear the bump down arrow area if enabled
+         if (s.withBumpDownArrow)
+         {
+            // clear the slider bump down arrow area
+            lcd->fillRect(s.xCenterLoc - (s.xSize / 2) - 3, s.yCenterLoc + (s.ySize / 2) + 8, s.xSize + 6, 40, s.bumpBackgroundColor);
+
+            // draw the slider bump down arrow outline
+            lcd->drawRect(s.xCenterLoc - (s.xSize / 2) - 3, s.yCenterLoc + (s.ySize / 2) + 8, s.xSize + 6, 40, s.borderColor);
+            lcd->drawRect(s.xCenterLoc - (s.xSize / 2) - 1, s.yCenterLoc + (s.ySize / 2) + 10, s.xSize + 2, 36, s.borderColor);
+
+            // draw the slider bump down arrow
+            for (int i = 0; i < 7; i++)
+            {
+               lcd->drawLine(s.xCenterLoc - (7 - i), s.yCenterLoc + (s.ySize / 2) + i + 24, s.xCenterLoc + (7 - i), s.yCenterLoc + (s.ySize / 2) + i + 24, s.handleColor);
+            }
+         }
+
+         // clear the bump up arrow area if enabled
+         if (s.withBumpUpArrow)
+         {
+            // clear the slider bump up arrow area
+            lcd->fillRect(s.xCenterLoc - (s.xSize / 2) - 3, s.yCenterLoc - (s.ySize / 2) - 46, s.xSize + 6, 40, s.bumpBackgroundColor);
+
+            // draw the slider bump up arrow outline
+            lcd->drawRect(s.xCenterLoc - (s.xSize / 2) - 3, s.yCenterLoc - (s.ySize / 2) - 46, s.xSize + 6, 40, s.borderColor);
+            lcd->drawRect(s.xCenterLoc - (s.xSize / 2) - 1, s.yCenterLoc - (s.ySize / 2) - 44, s.xSize + 2, 36, s.borderColor);
+
+            // draw the slider bump up arrow
+            for (int i = 0; i < 7; i++)
+            {
+               lcd->drawLine(s.xCenterLoc - (7 - i), s.yCenterLoc - (s.ySize / 2) - i - 24, s.xCenterLoc + (7 - i), s.yCenterLoc - (s.ySize / 2) - i - 24, s.handleColor);
+            }
+         }
+
+         // clear the entire slider
+         lcd->fillRect(s.xCenterLoc - (s.xSize / 2) - 3, s.yCenterLoc - (s.ySize / 2) - 7, s.xSize + 6, s.ySize + 15, s.backgroundColor);
+
+         // draw the slider outline
+         lcd->drawRect(s.xCenterLoc - (s.xSize / 2) - 3, s.yCenterLoc - (s.ySize / 2) - 7, s.xSize + 6, s.ySize + 15, s.borderColor);
+
+         // draw the slider handle
+         lcd->fillRect(s.xCenterLoc - (2 + s.xSize * 4 / 10), (int)map(s.value, s.maxValue, s.minValue, s.yCenterLoc - (s.ySize / 2), s.yCenterLoc + (s.ySize / 2)) - 6, (s.xSize * 8 / 10) + 4, 13, LCD_BLACK);
+         lcd->fillRect(s.xCenterLoc - s.xSize * 4 / 10, (int)map(s.value, s.maxValue, s.minValue, s.yCenterLoc - (s.ySize / 2), s.yCenterLoc + (s.ySize / 2)) - 4, s.xSize * 8 / 10, 9, s.handleColor);
+
+         // draw the slider guide line
+         lcd->drawLine(s.xCenterLoc, s.yCenterLoc - (s.ySize / 2), s.xCenterLoc, s.yCenterLoc + (s.ySize / 2), s.scaleColor);          // guide line
+
+         lcd->drawLine(s.xCenterLoc - 7, s.yCenterLoc - (s.ySize / 2), s.xCenterLoc + 7, s.yCenterLoc - (s.ySize / 2), s.scaleColor);  // top end
+         lcd->drawLine(s.xCenterLoc - 7, s.yCenterLoc + (s.ySize / 2), s.xCenterLoc + 7, s.yCenterLoc + (s.ySize / 2), s.scaleColor);  // bottom end
+
+         // draw the slider minor tick lines
+         for (unsigned int i = 1; i < s.minorTickSections; i++)
+         {
+            lcd->drawLine(s.xCenterLoc - 2, s.yCenterLoc - s.ySize / 2 + (s.ySize * i / s.minorTickSections), s.xCenterLoc + 2, s.yCenterLoc - s.ySize / 2 + (s.ySize * i / s.minorTickSections), s.scaleColor);      // minor tick lines
+         }
+
+         // draw the slider major tick lines
+         for (unsigned int i = 1; i < s.majorTickSections; i++)
+         {
+            lcd->drawLine(s.xCenterLoc - 4, s.yCenterLoc - s.ySize / 2 + (s.ySize * i / s.majorTickSections), s.xCenterLoc + 4, s.yCenterLoc - s.ySize / 2 + (s.ySize * i / s.majorTickSections), s.scaleColor);      // major tick lines
+         }
+      } else {
+         // clear the bump uparrow area if enabled
+         if (s.withBumpUpArrow)
+         {
+            // clear the slider bump up arrow area
+            lcd->fillRect(s.xCenterLoc - (s.xSize / 2) - 3, s.yCenterLoc - (s.ySize / 2) - 46, s.xSize + 6, 40, s.backgroundColorDisabled);
+
+            // draw the slider bump up arrow outline
+            lcd->drawRect(s.xCenterLoc - (s.xSize / 2) - 3, s.yCenterLoc - (s.ySize / 2) - 46, s.xSize + 6, 40, s.borderColorDisabled);
+            lcd->drawRect(s.xCenterLoc - (s.xSize / 2) - 1, s.yCenterLoc - (s.ySize / 2) - 44, s.xSize + 2, 36, s.borderColorDisabled);
+
+            // draw the slider bump up arrow
+            for (int i = 0; i < 7; i++)
+            {
+               lcd->drawLine(s.xCenterLoc - (7 - i), s.yCenterLoc - (s.ySize / 2) - i - 24, s.xCenterLoc + (7 - i), s.yCenterLoc - (s.ySize / 2) - i - 24, s.borderColorDisabled);
+            }
+         }
+
+         // clear the entire slider
+         lcd->fillRect(s.xCenterLoc - (s.xSize / 2) - 3, s.yCenterLoc - (s.ySize / 2) - 7, s.xSize + 6, s.ySize + 15, s.backgroundColorDisabled);
+
+         // draw the slider outline
+         lcd->drawRect(s.xCenterLoc - (s.xSize / 2) - 3, s.yCenterLoc - (s.ySize / 2) - 7, s.xSize + 6, s.ySize + 15, s.borderColorDisabled);
+
+         // draw the slider handle
+         lcd->drawRect(s.xCenterLoc - (2 + s.xSize * 4 / 10), (int)map(s.value, s.maxValue, s.minValue, s.yCenterLoc - (s.ySize / 2), s.yCenterLoc + (s.ySize / 2)) - 4, (s.xSize * 8 / 10) + 4, 9, s.borderColorDisabled);
+
+         // draw the slider guide line
+         lcd->drawLine(s.xCenterLoc, s.yCenterLoc - (s.ySize / 2), s.xCenterLoc, s.yCenterLoc + (s.ySize / 2), s.scaleColorDisabled);          // guide line
+
+         lcd->drawLine(s.xCenterLoc - 7, s.yCenterLoc - (s.ySize / 2), s.xCenterLoc + 7, s.yCenterLoc - (s.ySize / 2), s.scaleColorDisabled);  // top end
+         lcd->drawLine(s.xCenterLoc - 7, s.yCenterLoc + (s.ySize / 2), s.xCenterLoc + 7, s.yCenterLoc + (s.ySize / 2), s.scaleColorDisabled);  // bottom end
+
+         // draw the slider minor tick lines
+         for (unsigned int i = 1; i < s.minorTickSections; i++)
+         {
+            lcd->drawLine(s.xCenterLoc - 2, s.yCenterLoc - s.ySize / 2 + (s.ySize * i / s.minorTickSections), s.xCenterLoc + 2, s.yCenterLoc - s.ySize / 2 + (s.ySize * i / s.minorTickSections), s.scaleColorDisabled);      // minor tick lines
+         }
+
+         // draw the slider major tick lines
+         for (unsigned int i = 1; i < s.majorTickSections; i++)
+         {
+            lcd->drawLine(s.xCenterLoc - 4, s.yCenterLoc - s.ySize / 2 + (s.ySize * i / s.majorTickSections), s.xCenterLoc + 4, s.yCenterLoc - s.ySize / 2 + (s.ySize * i / s.majorTickSections), s.scaleColorDisabled);      // major tick lines
+         }
+      }
+   }
+
+   characterCount = s.placesBeforeTheDecimal + s.placesAfterTheDecimal;
+   if (s.placesAfterTheDecimal != 0)
+   {
+      // add one character for the decimal point
+      characterCount++;
+   }
+   if (s.showPlusMinusSign)
+   {
+      // add one for the +/- sign
+      characterCount++;
+
+      if (s.value >= 0.0)
+      {
+         outString = outString + "+";
+      } else {
+         outString = outString + "-";
+      }
+   }
+
+   switch (s.placesBeforeTheDecimal)
+   {
+      case 5:
+         {
+            if (abs(s.value) >= 10000.0)
+            {
+               outString = outString + (char)(((int)(abs(s.value)) / 10000) + 0x30);
+            }
+         }
+      // no break, so fall-thru
+
+      case 4:
+         {
+            if (abs(s.value) >= 1000)
+            {
+               outString = outString + (char)((((int)(abs(s.value)) % 10000) / 1000) + 0x30);
+            }
+         }
+      // no break, so fall-thru
+
+      case 3:
+         {
+            if (abs(s.value) >= 100)
+            {
+               outString = outString + (char)((((int)(abs(s.value)) % 1000) / 100) + 0x30);
+            }
+         }
+      // no break, so fall-thru
+
+      case 2:
+         {
+            if (abs(s.value) >= 10)
+            {
+               outString = outString + (char)((((int)(abs(s.value)) % 100) / 10) + 0x30);
+            }
+         }
+         // no break, so fall-thru
+   }
+
+   outString = outString + (char)(((int)(abs(s.value)) % 10) + 0x30);
+
+   if (s.placesAfterTheDecimal != 0)
+   {
+      outString = outString + ".";
+   }
+
+   switch (s.placesAfterTheDecimal)
+   {
+      case 1:
+         {
+            outString = outString + (char)(((int)((abs(s.value) * 10.0f)) % 10) + 0x30);
+         }
+         break;
+
+      case 2:
+         {
+            outString = outString + (char)(((int)((abs(s.value) * 10.0f)) % 10) + 0x30);
+            outString = outString + (char)(((int)((abs(s.value) * 100.0f)) % 10) + 0x30);
+         }
+         break;
+   }
+
+   s.textWidthPrev = centerDrawText(outString, s.xValueCenterLoc + 1, s.yValueCenterLoc, s.valueColor, s.valueBgColor, s.textWidthPrev);
+}  // drawSlider()
+
+
+// check if a slider bump up arrow has been pressed
+boolean sliderM::checkSliderBumpUp(int screenX, int screenY, bool previouslyTouched)
+{
+   boolean retVal = false;
+
+   // if thisSlider is active & has a bump up arrow & was touched most recently in thisSlider's bump up arrow area
+   if ((s.activated) && (s.withBumpUpArrow))
+   {
+      if (s.orientation == sliderM::SLIDER_MODE::SLIDER_MODE_VERTICAL)
+      {
+         // if touched most recently in thisSlider's bump up arrow
+         if ((screenX >= (uint16_t)(s.xCenterLoc - ((s.xSize / 2)))) &&
+               (screenX <= (uint16_t)(s.xCenterLoc + ((s.xSize / 2)))) &&
+               (screenY >= (uint16_t)(s.yCenterLoc - ((s.ySize / 2) + 50))) &&
+               (screenY <= (uint16_t)(s.yCenterLoc - ((s.ySize / 2)))))
+         {
+
+#ifdef DEBUG_SLIDER_BUMP
+            Serial.print("initial slider value:   ");
+            Serial.println(s.value);
+            Serial.print("slider bump up value:   ");
+            Serial.println(s.bumpValue);
+#endif
+
+            if ((s.value + s.bumpValue) < s.maxValue)
+            {
+               s.value = (float)((round)(s.value / s.bumpValue)) * s.bumpValue;
+               s.value += s.bumpValue;
+            } else {
+               s.value = s.maxValue;
+            }
+
+#ifdef DEBUG_SLIDER_BUMP
+            Serial.print("resulting slider value: ");
+            Serial.println(s.value);
+            Serial.println("");
+#endif
+
+            retVal = true;
+
+            // force another wait delay before repeat
+            s.previouslyTouched = false;
+         }
+      } else {
+         // if touched most recently in thisSlider's bump up arrow
+         if ((screenX >= (uint16_t)(s.xCenterLoc + ((s.xSize / 2)))) &&
+               (screenX <= (uint16_t)(s.xCenterLoc + ((s.xSize / 2) + 50))) &&
+               (screenY >= (uint16_t)(s.yCenterLoc - ((s.ySize / 2)))) &&
+               (screenY <= (uint16_t)(s.yCenterLoc + ((s.ySize / 2)))))
+         {
+
+#ifdef DEBUG_SLIDER_BUMP
+            Serial.print("initial slider value:   ");
+            Serial.println(s.value);
+            Serial.print("slider bump up value:   ");
+            Serial.println(s.bumpValue);
+#endif
+
+            if ((s.value + s.bumpValue) < s.maxValue)
+            {
+               s.value = (float)((round)(s.value / s.bumpValue)) * s.bumpValue;
+               s.value += s.bumpValue;
+            } else {
+               s.value = s.maxValue;
+            }
+
+#ifdef DEBUG_SLIDER_BUMP
+            Serial.print("resulting slider value: ");
+            Serial.println(s.value);
+            Serial.println("");
+#endif
+
+            retVal = true;
+
+            // force another wait delay before repeat
+            s.previouslyTouched = false;
+         }
+      }
+   }
+
+   return (retVal);
+}  // checkSliderBumpUp()
+
+
+// check if a slider bump down arrow has been pressed
+boolean sliderM::checkSliderBumpDown(int screenX, int screenY, bool previouslyTouched)
+{
+   boolean retVal = false;
+
+   // if thisSlider is active & has a bump down arrow & was touched most recently in thisSlider's bump down arrow area
+   if ((s.activated) && (s.withBumpDownArrow))
+   {
+      if (s.orientation == sliderM::SLIDER_MODE::SLIDER_MODE_VERTICAL)
+      {
+         // if touched most recently in thisSlider's bump down arrow
+         if ((screenX >= (uint16_t)(s.xCenterLoc - ((s.xSize / 2)))) &&
+               (screenX <= (uint16_t)(s.xCenterLoc + ((s.xSize / 2)))) &&
+               (screenY >= (uint16_t)(s.yCenterLoc + ((s.ySize / 2)))) &&
+               (screenY <= (uint16_t)(s.yCenterLoc + ((s.ySize / 2) + 50))))
+         {
+
+#ifdef DEBUG_SLIDER_BUMP
+            Serial.print("initial slider value:   ");
+            Serial.println(s.value);
+            Serial.print("slider bump down value:   ");
+            Serial.println(s.bumpValue);
+#endif
+
+            if ((s.value - s.bumpValue) > (s.minValue))
+            {
+               s.value = (float)((round)(s.value / s.bumpValue)) * s.bumpValue;
+               s.value -= s.bumpValue;
+            } else {
+               s.value = s.minValue;
+            }
+
+#ifdef DEBUG_SLIDER_BUMP
+            Serial.print("resulting slider value: ");
+            Serial.println(s.value);
+            Serial.println("");
+#endif
+
+            retVal = true;
+
+            // force another wait delay before repeat
+            s.previouslyTouched = false;
+         }
+      } else {   // sliderM::SLIDER_MODE::SLIDER_MODE_HORIZONTAL
+         // if touched most recently in thisSlider's bump down arrow
+         if ((screenX >= (uint16_t)(s.xCenterLoc - ((s.xSize / 2) + 50))) &&
+               (screenX <= (uint16_t)(s.xCenterLoc - ((s.xSize / 2)))) &&
+               (screenY >= (uint16_t)(s.yCenterLoc - ((s.ySize / 2)))) &&
+               (screenY <= (uint16_t)(s.yCenterLoc + ((s.ySize / 2)))))
+         {
+
+#ifdef DEBUG_SLIDER_BUMP
+            Serial.print("initial slider value:   ");
+            Serial.println(s.value);
+            Serial.print("slider bump down value:   ");
+            Serial.println(s.bumpValue);
+#endif
+
+            if ((s.value - s.bumpValue) > (s.minValue))
+            {
+               s.value = (float)((round)(s.value / s.bumpValue)) * s.bumpValue;
+               s.value -= s.bumpValue;
+            } else {
+               s.value = s.minValue;
+            }
+
+#ifdef DEBUG_SLIDER_BUMP
+            Serial.print("resulting slider value: ");
+            Serial.println(s.value);
+            Serial.println("");
+#endif
+
+            retVal = true;
+
+            // force another wait delay before repeat
+            s.previouslyTouched = false;
+         }
+      }
+   }
+
+   return (retVal);
+}  // chec
+
+
+// check if a slider has changed
+boolean sliderM::checkSlider(int screenX, int screenY, bool previouslyTouched)
+{
+   boolean retVal = false;
+   float newValue = 0.0f;
+
+   // if thisSlider is active & touched most recently in thisSlider
+   if (s.activated)
+   {
+      if (s.orientation == sliderM::SLIDER_MODE::SLIDER_MODE_VERTICAL)
+      {
+         // if touched most recently in thisSlider
+         if ((screenX >= (uint16_t)(s.xCenterLoc - ((s.xSize / 2) + 15))) &&
+               (screenX <= (uint16_t)(s.xCenterLoc + ((s.xSize / 2) + 15))) &&
+               (screenY >= (uint16_t)(s.yCenterLoc - ((s.ySize / 2)))) &&
+               (screenY <= (uint16_t)(s.yCenterLoc + ((s.ySize / 2)))))
+         {
+            if (screenX < (uint16_t)(s.xCenterLoc - (s.xSize / 2)))
+            {
+               screenX = (uint16_t)(s.xCenterLoc - (s.xSize / 2));
+            }
+
+            if (screenX > (uint16_t)(s.xCenterLoc + (s.xSize / 2)))
+            {
+               screenX = (uint16_t)(s.xCenterLoc + (s.xSize / 2));
+            }
+
+            if (screenY < (uint16_t)(s.yCenterLoc - (s.ySize / 2)))
+            {
+               screenY = (uint16_t)(s.yCenterLoc - (s.ySize / 2));
+            }
+
+            if (screenY > (uint16_t)(s.yCenterLoc + (s.ySize / 2)))
+            {
+               screenY = (uint16_t)(s.yCenterLoc + (s.ySize / 2));
+            }
+
+            newValue = (float)map((float)screenY, (float)(s.yCenterLoc - (s.ySize / 2)), (float)(s.yCenterLoc + (s.ySize / 2)), s.maxValue, s.minValue);
+
+            if (newValue != s.value)
+            {
+               s.value = newValue;
+
+               retVal = true;
+            }
+         } else {
+            // if thisSlider is active & has either bump arrow & has been held & was touched most recently in thisSlider's bump arrow area
+            if ((s.withBumpDownArrow || s.withBumpUpArrow) && (s.repeatEnabled))
+            {
+               // if touched most recently in thisSlider's bump up arrow
+               if ((screenX >= (uint16_t)(s.xCenterLoc - ((s.xSize / 2)))) &&
+                     (screenX <= (uint16_t)(s.xCenterLoc + ((s.xSize / 2)))) &&
+                     (screenY >= (uint16_t)(s.yCenterLoc - ((s.ySize / 2) + 50))) &&
+                     (screenY <= (uint16_t)(s.yCenterLoc - ((s.ySize / 2)))))
+               {
+
+#ifdef DEBUG_SLIDER_BUMP
+                  Serial.print("initial slider value:   ");
+                  Serial.println(s.value);
+                  Serial.print("slider bump up value:   ");
+                  Serial.println(s.bumpValue);
+#endif
+
+                  if (!(s.previouslyTouched))
+                  {
+                     s.previouslyTouched = true;
+                     s.touchStartMillis = millis();
+                  } else {
+                     if ((millis() - s.touchStartMillis) > BUMP_REPEAT_START_DELAY_MILLISECONDS)
+                     {
+                        if ((s.value + s.bumpValue) < s.maxValue)
+                        {
+                           s.value = (float)((round)(s.value / s.bumpValue)) * s.bumpValue;
+                           s.value += s.bumpValue;
+                        } else {
+                           s.value = s.maxValue;
+                        }
+
+#ifdef DEBUG_SLIDER_BUMP
+                        Serial.print("resulting slider value: ");
+                        Serial.println(s.value);
+                        Serial.println("");
+#endif
+
+                        retVal = true;
+                     }
+                  }
+               } else {
+                  // if touched most recently in thisSlider's bump down arrow
+                  if ((screenX >= (uint16_t)(s.xCenterLoc - ((s.xSize / 2)))) &&
+                        (screenX <= (uint16_t)(s.xCenterLoc + ((s.xSize / 2)))) &&
+                        (screenY >= (uint16_t)(s.yCenterLoc + (s.ySize / 2))) &&
+                        (screenY <= (uint16_t)(s.yCenterLoc + ((s.ySize / 2) + 50))))
+                  {
+
+#ifdef DEBUG_SLIDER_BUMP
+                     Serial.print("initial slider value:   ");
+                     Serial.println(s.value);
+                     Serial.print("slider bump down value:   ");
+                     Serial.println(s.bumpValue);
+#endif
+
+                     if (!(s.previouslyTouched))
+                     {
+                        s.previouslyTouched = true;
+                        s.touchStartMillis = millis();
+                     } else {
+                        if ((millis() - s.touchStartMillis) > BUMP_REPEAT_START_DELAY_MILLISECONDS)
+                        {
+                           if ((s.value - s.bumpValue) > s.minValue)
+                           {
+                              s.value = (float)((round)(s.value / s.bumpValue)) * s.bumpValue;
+                              s.value -= s.bumpValue;
+                           } else {
+                              s.value = s.minValue;
+                           }
+
+#ifdef DEBUG_SLIDER_BUMP
+                           Serial.print("resulting slider value: ");
+                           Serial.println(s.value);
+                           Serial.println("");
+#endif
+
+                           retVal = true;
+                        }
+                     }
+                  } else {
+                     // force another wait delay before repeat
+                     s.previouslyTouched = false;
+                  }
+               }
+            } else {
+               // force another wait delay before repeat
+               s.previouslyTouched = false;
+            }
+         }
+      } else {  // sliderM::SLIDER_MODE::SLIDER_MODE_HORIZONTAL
+         // if touched most recently in thisSlider
+         if ((screenX >= (uint16_t)(s.xCenterLoc - ((s.xSize / 2) + 15))) &&
+               (screenX <= (uint16_t)(s.xCenterLoc + ((s.xSize / 2) + 15))) &&
+               (screenY >= (uint16_t)(s.yCenterLoc - ((s.ySize / 2)))) &&
+               (screenY <= (uint16_t)(s.yCenterLoc + ((s.ySize / 2)))))
+         {
+            if (screenX < (uint16_t)(s.xCenterLoc - (s.xSize / 2)))
+            {
+               screenX = (uint16_t)(s.xCenterLoc - (s.xSize / 2));
+            }
+
+            if (screenX > (uint16_t)(s.xCenterLoc + (s.xSize / 2)))
+            {
+               screenX = (uint16_t)(s.xCenterLoc + (s.xSize / 2));
+            }
+
+            if (screenY < (uint16_t)(s.yCenterLoc - (s.ySize / 2)))
+            {
+               screenY = (uint16_t)(s.yCenterLoc - (s.ySize / 2));
+            }
+
+            if (screenY > (uint16_t)(s.yCenterLoc + (s.ySize / 2)))
+            {
+               screenY = (uint16_t)(s.yCenterLoc + (s.ySize / 2));
+            }
+
+            newValue = (float)map((float)screenX, (float)(s.xCenterLoc - (s.xSize / 2)), (float)(s.xCenterLoc + (s.xSize / 2)), s.minValue, s.maxValue);
+
+            if (newValue != s.value)
+            {
+               s.value = newValue;
+
+               retVal = true;
+            }
+         } else {
+            // if thisSlider is active & has either bump arrow & has been held & was touched most recently in thisSlider's bump arrow area
+            if ((s.withBumpDownArrow || s.withBumpUpArrow) && (s.repeatEnabled))
+            {
+               // if touched most recently in thisSlider's bump up arrow
+               if ((screenX >= (uint16_t)(s.xCenterLoc + ((s.xSize / 2)))) &&
+                     (screenX <= (uint16_t)(s.xCenterLoc + ((s.xSize / 2) + 50))) &&
+                     (screenY >= (uint16_t)(s.yCenterLoc - ((s.ySize / 2)))) &&
+                     (screenY <= (uint16_t)(s.yCenterLoc + ((s.ySize / 2)))))
+               {
+
+#ifdef DEBUG_SLIDER_BUMP
+                  Serial.print("initial slider value:   ");
+                  Serial.println(s.value);
+                  Serial.print("slider bump up value:   ");
+                  Serial.println(s.bumpValue);
+#endif
+
+                  if (!(s.previouslyTouched))
+                  {
+                     s.previouslyTouched = true;
+                     s.touchStartMillis = millis();
+                  } else {
+                     if ((millis() - s.touchStartMillis) > BUMP_REPEAT_START_DELAY_MILLISECONDS)
+                     {
+                        if ((s.value + s.bumpValue) < s.maxValue)
+                        {
+                           s.value = (float)((round)(s.value / s.bumpValue)) * s.bumpValue;
+                           s.value += s.bumpValue;
+                        } else {
+                           s.value = s.maxValue;
+                        }
+
+#ifdef DEBUG_SLIDER_BUMP
+                        Serial.print("resulting slider value: ");
+                        Serial.println(s.value);
+                        Serial.println("");
+#endif
+
+                        retVal = true;
+                     }
+                  }
+               } else {
+                  // if touched most recently in thisSlider's bump down arrow
+                  if ((screenX >= (uint16_t)(s.xCenterLoc - ((s.xSize / 2) + 50))) &&
+                        (screenX <= (uint16_t)(s.xCenterLoc - ((s.xSize / 2)))) &&
+                        (screenY >= (uint16_t)(s.yCenterLoc - (s.ySize / 2))) &&
+                        (screenY <= (uint16_t)(s.yCenterLoc + ((s.ySize / 2)))))
+                  {
+#ifdef DEBUG_SLIDER_BUMP
+                     Serial.print("initial slider value:   ");
+                     Serial.println(s.value);
+                     Serial.print("slider bump down value:   ");
+                     Serial.println(s.bumpValue);
+#endif
+
+                     if (!(s.previouslyTouched))
+                     {
+                        s.previouslyTouched = true;
+                        s.touchStartMillis = millis();
+                     } else {
+                        if ((millis() - s.touchStartMillis) > BUMP_REPEAT_START_DELAY_MILLISECONDS)
+                        {
+                           if ((s.value - s.bumpValue) > s.minValue)
+                           {
+                              s.value = (float)((round)(s.value / s.bumpValue)) * s.bumpValue;
+                              s.value -= s.bumpValue;
+                           } else {
+                              s.value = s.minValue;
+                           }
+
+#ifdef DEBUG_SLIDER_BUMP
+                           Serial.print("resulting slider value: ");
+                           Serial.println(s.value);
+                           Serial.println("");
+#endif
+
+                           retVal = true;
+                        }
+                     }
+                  } else {
+                     // force another wait delay before repeat
+                     s.previouslyTouched = false;
+                  }
+               }
+            } else {
+               // force another wait delay before repeat
+               s.previouslyTouched = false;
+            }
+         }
+      }
+   }
+
+   return (retVal);
+}  // checkSlider()
+
+boolean sliderM::checkSliderT()
+{
+   boolean retVal = false;
+   float newValue = 0.0f;
+	 
+	int screenX;
+  int screenY;
+
+  //
+  // get the coords, if any, where the user is touching
+  //
+	
+  if (!getTouchScreenCoords(&screenY, &screenX))
+  {
+		s.previouslyTouched = false;
+    return(false);
+  }
+		s.previouslyTouched = true;
+
+	screenX = lcd->width() - screenX;
+	//Serial.printf("Screen Coords: %d, %d\n", screenX, screenY);
+	
+   // if thisSlider is active & touched most recently in thisSlider
+   if (s.activated)
+   {
+      if (s.orientation == sliderM::SLIDER_MODE::SLIDER_MODE_VERTICAL)
+      {
+         // if touched most recently in thisSlider
+         if ((screenX >= (uint16_t)(s.xCenterLoc - ((s.xSize / 2) + 15))) &&
+               (screenX <= (uint16_t)(s.xCenterLoc + ((s.xSize / 2) + 15))) &&
+               (screenY >= (uint16_t)(s.yCenterLoc - ((s.ySize / 2)))) &&
+               (screenY <= (uint16_t)(s.yCenterLoc + ((s.ySize / 2)))))
+         {
+            if (screenX < (uint16_t)(s.xCenterLoc - (s.xSize / 2)))
+            {
+               screenX = (uint16_t)(s.xCenterLoc - (s.xSize / 2));
+            }
+
+            if (screenX > (uint16_t)(s.xCenterLoc + (s.xSize / 2)))
+            {
+               screenX = (uint16_t)(s.xCenterLoc + (s.xSize / 2));
+            }
+
+            if (screenY < (uint16_t)(s.yCenterLoc - (s.ySize / 2)))
+            {
+               screenY = (uint16_t)(s.yCenterLoc - (s.ySize / 2));
+            }
+
+            if (screenY > (uint16_t)(s.yCenterLoc + (s.ySize / 2)))
+            {
+               screenY = (uint16_t)(s.yCenterLoc + (s.ySize / 2));
+            }
+
+            newValue = (float)map((float)screenY, (float)(s.yCenterLoc - (s.ySize / 2)), (float)(s.yCenterLoc + (s.ySize / 2)), s.maxValue, s.minValue);
+
+            if (newValue != s.value)
+            {
+               s.value = newValue;
+
+               retVal = true;
+            }
+         } else {
+            // if thisSlider is active & has either bump arrow & has been held & was touched most recently in thisSlider's bump arrow area
+            if ((s.withBumpDownArrow || s.withBumpUpArrow) && (s.repeatEnabled))
+            {
+               // if touched most recently in thisSlider's bump up arrow
+               if ((screenX >= (uint16_t)(s.xCenterLoc - ((s.xSize / 2)))) &&
+                     (screenX <= (uint16_t)(s.xCenterLoc + ((s.xSize / 2)))) &&
+                     (screenY >= (uint16_t)(s.yCenterLoc - ((s.ySize / 2) + 50))) &&
+                     (screenY <= (uint16_t)(s.yCenterLoc - ((s.ySize / 2)))))
+               {
+
+#ifdef DEBUG_SLIDER_BUMP
+                  Serial.print("initial slider value:   ");
+                  Serial.println(s.value);
+                  Serial.print("slider bump up value:   ");
+                  Serial.println(s.bumpValue);
+#endif
+
+                  if (!(s.previouslyTouched))
+                  {
+                     s.previouslyTouched = true;
+                     s.touchStartMillis = millis();
+                  } else {
+                     if ((millis() - s.touchStartMillis) > BUMP_REPEAT_START_DELAY_MILLISECONDS)
+                     {
+                        if ((s.value + s.bumpValue) < s.maxValue)
+                        {
+                           s.value = (float)((round)(s.value / s.bumpValue)) * s.bumpValue;
+                           s.value += s.bumpValue;
+                        } else {
+                           s.value = s.maxValue;
+                        }
+
+#ifdef DEBUG_SLIDER_BUMP
+                        Serial.print("resulting slider value: ");
+                        Serial.println(s.value);
+                        Serial.println("");
+#endif
+
+                        retVal = true;
+                     }
+                  }
+               } else {
+                  // if touched most recently in thisSlider's bump down arrow
+                  if ((screenX >= (uint16_t)(s.xCenterLoc - ((s.xSize / 2)))) &&
+                        (screenX <= (uint16_t)(s.xCenterLoc + ((s.xSize / 2)))) &&
+                        (screenY >= (uint16_t)(s.yCenterLoc + (s.ySize / 2))) &&
+                        (screenY <= (uint16_t)(s.yCenterLoc + ((s.ySize / 2) + 50))))
+                  {
+
+#ifdef DEBUG_SLIDER_BUMP
+                     Serial.print("initial slider value:   ");
+                     Serial.println(s.value);
+                     Serial.print("slider bump down value:   ");
+                     Serial.println(s.bumpValue);
+#endif
+
+                     if (!(s.previouslyTouched))
+                     {
+                        s.previouslyTouched = true;
+                        s.touchStartMillis = millis();
+                     } else {
+                        if ((millis() - s.touchStartMillis) > BUMP_REPEAT_START_DELAY_MILLISECONDS)
+                        {
+                           if ((s.value - s.bumpValue) > s.minValue)
+                           {
+                              s.value = (float)((round)(s.value / s.bumpValue)) * s.bumpValue;
+                              s.value -= s.bumpValue;
+                           } else {
+                              s.value = s.minValue;
+                           }
+
+#ifdef DEBUG_SLIDER_BUMP
+                           Serial.print("resulting slider value: ");
+                           Serial.println(s.value);
+                           Serial.println("");
+#endif
+
+                           retVal = true;
+                        }
+                     }
+                  } else {
+                     // force another wait delay before repeat
+                     s.previouslyTouched = false;
+                  }
+               }
+            } else {
+               // force another wait delay before repeat
+               s.previouslyTouched = false;
+            }
+         }
+      } else {  // sliderM::SLIDER_MODE::SLIDER_MODE_HORIZONTAL
+         // if touched most recently in thisSlider
+         if ((screenX >= (uint16_t)(s.xCenterLoc - ((s.xSize / 2) + 15))) &&
+               (screenX <= (uint16_t)(s.xCenterLoc + ((s.xSize / 2) + 15))) &&
+               (screenY >= (uint16_t)(s.yCenterLoc - ((s.ySize / 2)))) &&
+               (screenY <= (uint16_t)(s.yCenterLoc + ((s.ySize / 2)))))
+         {
+            if (screenX < (uint16_t)(s.xCenterLoc - (s.xSize / 2)))
+            {
+               screenX = (uint16_t)(s.xCenterLoc - (s.xSize / 2));
+            }
+
+            if (screenX > (uint16_t)(s.xCenterLoc + (s.xSize / 2)))
+            {
+               screenX = (uint16_t)(s.xCenterLoc + (s.xSize / 2));
+            }
+
+            if (screenY < (uint16_t)(s.yCenterLoc - (s.ySize / 2)))
+            {
+               screenY = (uint16_t)(s.yCenterLoc - (s.ySize / 2));
+            }
+
+            if (screenY > (uint16_t)(s.yCenterLoc + (s.ySize / 2)))
+            {
+               screenY = (uint16_t)(s.yCenterLoc + (s.ySize / 2));
+            }
+
+            newValue = (float)map((float)screenX, (float)(s.xCenterLoc - (s.xSize / 2)), (float)(s.xCenterLoc + (s.xSize / 2)), s.minValue, s.maxValue);
+
+            if (newValue != s.value)
+            {
+               s.value = newValue;
+
+               retVal = true;
+            }
+         } else {
+            // if thisSlider is active & has either bump arrow & has been held & was touched most recently in thisSlider's bump arrow area
+            if ((s.withBumpDownArrow || s.withBumpUpArrow) && (s.repeatEnabled))
+            {
+               // if touched most recently in thisSlider's bump up arrow
+               if ((screenX >= (uint16_t)(s.xCenterLoc + ((s.xSize / 2)))) &&
+                     (screenX <= (uint16_t)(s.xCenterLoc + ((s.xSize / 2) + 50))) &&
+                     (screenY >= (uint16_t)(s.yCenterLoc - ((s.ySize / 2)))) &&
+                     (screenY <= (uint16_t)(s.yCenterLoc + ((s.ySize / 2)))))
+               {
+
+#ifdef DEBUG_SLIDER_BUMP
+                  Serial.print("initial slider value:   ");
+                  Serial.println(s.value);
+                  Serial.print("slider bump up value:   ");
+                  Serial.println(s.bumpValue);
+#endif
+
+                  if (!(s.previouslyTouched))
+                  {
+                     s.previouslyTouched = true;
+                     s.touchStartMillis = millis();
+                  } else {
+                     if ((millis() - s.touchStartMillis) > BUMP_REPEAT_START_DELAY_MILLISECONDS)
+                     {
+                        if ((s.value + s.bumpValue) < s.maxValue)
+                        {
+                           s.value = (float)((round)(s.value / s.bumpValue)) * s.bumpValue;
+                           s.value += s.bumpValue;
+                        } else {
+                           s.value = s.maxValue;
+                        }
+
+#ifdef DEBUG_SLIDER_BUMP
+                        Serial.print("resulting slider value: ");
+                        Serial.println(s.value);
+                        Serial.println("");
+#endif
+
+                        retVal = true;
+                     }
+                  }
+               } else {
+                  // if touched most recently in thisSlider's bump down arrow
+                  if ((screenX >= (uint16_t)(s.xCenterLoc - ((s.xSize / 2) + 50))) &&
+                        (screenX <= (uint16_t)(s.xCenterLoc - ((s.xSize / 2)))) &&
+                        (screenY >= (uint16_t)(s.yCenterLoc - (s.ySize / 2))) &&
+                        (screenY <= (uint16_t)(s.yCenterLoc + ((s.ySize / 2)))))
+                  {
+#ifdef DEBUG_SLIDER_BUMP
+                     Serial.print("initial slider value:   ");
+                     Serial.println(s.value);
+                     Serial.print("slider bump down value:   ");
+                     Serial.println(s.bumpValue);
+#endif
+
+                     if (!(s.previouslyTouched))
+                     {
+                        s.previouslyTouched = true;
+                        s.touchStartMillis = millis();
+                     } else {
+                        if ((millis() - s.touchStartMillis) > BUMP_REPEAT_START_DELAY_MILLISECONDS)
+                        {
+                           if ((s.value - s.bumpValue) > s.minValue)
+                           {
+                              s.value = (float)((round)(s.value / s.bumpValue)) * s.bumpValue;
+                              s.value -= s.bumpValue;
+                           } else {
+                              s.value = s.minValue;
+                           }
+
+#ifdef DEBUG_SLIDER_BUMP
+                           Serial.print("resulting slider value: ");
+                           Serial.println(s.value);
+                           Serial.println("");
+#endif
+
+                           retVal = true;
+                        }
+                     }
+                  } else {
+                     // force another wait delay before repeat
+                     s.previouslyTouched = false;
+                  }
+               }
+            } else {
+               // force another wait delay before repeat
+               s.previouslyTouched = false;
+            }
+         }
+      }
+   }
+
+   return (retVal);
+}  // checkSlider()

@@ -17,7 +17,8 @@
 
 
 // ***********************************************************************
-
+#include <Adafruit_FT6206.h>
+#include <ST7796_t3.h>
 #include <TeensyUserInterface.h>
 #include <font_Arial.h>
 #include <font_ArialBold.h>
@@ -41,7 +42,7 @@ void setup()
   //
   const int LCD_CS_PIN = 10;
   const int LCD_DC_PIN = 9;
-  const int TOUCH_CS_PIN = 8;
+  const int TOUCH_CS_PIN = 27;
   
   //
   // setup the LCD orientation, the default font and initialize the user interface

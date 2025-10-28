@@ -35,12 +35,18 @@
 
 #if __has_include("ILI9341_t3.h")
 #include <ILI9341_t3.h>
+#define ILI9341_t3 ILI9341_t3
 #elif __has_include("ST7796_t3.h")
 #include <ST7796_t3.h>
 #define ILI9341_t3 ST7796_t3
 #elif __has_include("ILI9488_t3.h")
 #define ILI9341_t3 ILI9488_t3
 #endif
+
+#include <string>
+
+#include <ILI9341_fonts.h>
+#include <font_Arial.h>
 
 /********************************/
 /*  For ILI9341 controls        */
@@ -122,6 +128,7 @@ const uint16_t LCD_YELLOW =      0xFFE0;
 const uint16_t LCD_WHITE =       0xFFFF;
 const uint16_t LCD_ORANGE =      0xFD20;
 const uint16_t LCD_GREENYELLOW = 0xAFE5;
+const uint16_t LCD_MDGREY =     0x7BCF;
 
 
 //
@@ -1184,4 +1191,102 @@ private:
   };
 
 // ------------------------------------ End ---------------------------------
+
+class sliderM : TeensyUserInterface
+{
+  public:
+    enum class SLIDER_MODE
+    {
+      SLIDER_MODE_HORIZONTAL,
+      SLIDER_MODE_VERTICAL
+    };
+
+    struct Slider
+    {
+      std::string symbol = "?";
+      unsigned int   xCenterLoc;   // center of slider x location
+      unsigned int   yCenterLoc;   // center of slider y location
+      unsigned int   xSize;        // Length of slider body
+      unsigned int   ySize;        // thickness of slider body
+      float          value;        // initial value of sliders handle
+      unsigned int   minorTickSections;  // normally = 10
+      unsigned int   majorTickSections;  // normally =  2
+      unsigned int   placesBeforeTheDecimal;  //next 3 describe the value printed on the screen format
+      unsigned int   placesAfterTheDecimal;
+      boolean        showPlusMinusSign;
+                      //Slider Range
+      float          minValue;  // for HORIZONTAL = all the way to the left, for VERTICAL, all the way up
+      float          maxValue;  // for HORIZONTAL = all the way to the right, for VERTICAL, all the way down
+                      //enable or disable bump arrows
+      boolean        withBumpUpArrow;
+      boolean        withBumpDownArrow;
+      float          bumpValue;          //Increment of bump
+                      // Slider Value location to be printed on Screen
+      unsigned int   xValueCenterLoc;
+      unsigned int   yValueCenterLoc;
+      int16_t        textWidthPrev;
+                      //colors
+      uint16_t       valueColor;
+      uint16_t       valueBgColor;
+      uint16_t       backgroundColor;          //Color of interior of slider boder
+      uint16_t       borderColor;              // Border color of slider - all
+      uint16_t       scaleColor;               // color of the scale lines of the slider
+      uint16_t       handleColor;              // Color of the indicator handle
+      uint16_t       handleBorderColor;        // Color of the indicator handle border
+      uint16_t       bumpBackgroundColor;      // Background colore for bump box
+      
+                      //Set colors for slider if it has been disabled
+      uint16_t       backgroundColorDisabled = LCD_MDGREY;
+      uint16_t       borderColorDisabled = LCD_MDGREY;
+      uint16_t       scaleColorDisabled = LCD_MDGREY;
+      uint16_t       handleColorDisabled = LCD_BLACK;
+      uint16_t       handleBorderColorDisabled = LCD_BLACK;
+
+      boolean        activated;
+      boolean        repeatEnabled;
+      boolean        previouslyTouched;
+      unsigned long  touchStartMillis;
+      unsigned int   repeatMilliseconds;
+      SLIDER_MODE    orientation;
+
+      const ILI9341_t3_font_t* font = &Arial_12;
+
+      //Slider() = default;
+      //Slider(const std::string& symbol, SLIDER_MODE type);  // Constructor
+    };
+
+    sliderM(const std::string& symbol, SLIDER_MODE type);
+    //Slider createSlider(const std::string& symbol, SLIDER_MODE type);
+    void init(int x, int y, int xsize, int ysize, bool bumpUp, bool bumpDwn);
+    void setEnable(bool active);
+
+    void setPosition(int x, int y);
+    void setSliderColors(uint16_t valueColor, uint16_t valueBgColor, uint16_t backgroundColor, uint16_t borderColor);
+    void setAxis(float minValue, float maxValue, int minorTicks, int majorTicks);
+    void setHandle(int xCenter, int yCenter, uint16_t handleColor, uint16_t handleBorderColor);
+    void setHandleColors(uint16_t handleColor, uint16_t handleBorderColor);
+    void setBump(float bumpValue, bool repeatEnabled, bool bumpUp, bool bumpDwn);
+    void setBumpColor(uint16_t bumpBackgroundColor);
+    void setValue(float value);
+    float getValue();
+    void setValueFont(const ILI9341_t3_font_t *f, uint16_t color, uint16_t bgColor);
+    void setSliderPrint(int placesBeforeTheDecimal, int placesAfterTheDecimal,bool showPlusMinusSign);
+
+    int16_t centerDrawText( const String text, unsigned int xCenterLoc, unsigned int yCenterLoc, uint16_t textColor, uint16_t textBackground, int16_t w_prev);
+    void drawSlider();
+
+    boolean checkSliderBumpUp(int screenX, int screenY, bool previouslyTouched);
+    boolean checkSliderBumpDown(int screenX, int screenY, bool previouslyTouched);
+    boolean checkSlider(int screenX, int screenY, bool previouslyTouched);
+    void setDisabledColors(uint16_t bgColor, uint16_t borderColor, 
+                        uint16_t scaleColor, uint16_t handleColor, 
+                        uint16_t handleBorderColor);
+	boolean checkSliderT();
+
+  private:
+    Slider          s;  // instance of the data structure defined above.
+    uint32_t BUMP_REPEAT_START_DELAY_MILLISECONDS = 750;
+};
+
+
 #endif
